@@ -1,0 +1,33 @@
+{
+  "name": "tho-tot-auth",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "download:swagger": "powershell -Command \"Invoke-WebRequest -Uri 'https://postmaxillary-variably-justa.ngrok-free.dev/api-json' -OutFile 'swagger.json' -Headers @{'ngrok-skip-browser-warning'='true'}\"",
+    "generate:sdk": "npm run download:swagger && swagger-typescript-api generate -p swagger.json -o src/lib/api -n index.ts",
+    "generate:sdk:clean": "npm run generate:sdk && del swagger.json"
+  },
+  "dependencies": {
+    "next": "14.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "axios": "^1.13.2",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.0.4",
+    "postcss": "^8",
+    "swagger-typescript-api": "^13.2.16",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5"
+  }
+}
