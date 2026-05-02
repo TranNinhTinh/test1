@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1'
+const API_BASE_URL = getPublicApiBaseV1()
 
 /**
  * POST /api/quotes/{id}/request-order

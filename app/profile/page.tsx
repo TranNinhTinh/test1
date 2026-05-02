@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { ProfileService, ProfileResponse, UpdateProfileDto, UpdateContactDto, ChangeDisplayNameDto } from '@/lib/api/profile-new.service'
 import { PostService } from '@/lib/api/post.service'
 import { AuthService } from '@/lib/api/auth.service'
 import { UserService } from '@/lib/api/user.service'
+import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
 
 export default function Profile() {
   const router = useRouter()
@@ -46,25 +48,6 @@ export default function Profile() {
 
     loadProfile()
   }, [router])
-
-  const normalizeImageUrl = (rawUrl?: string | null) => {
-    if (!rawUrl) return ''
-    const cleanUrl = rawUrl.trim()
-    if (!cleanUrl) return ''
-
-    if (/^https?:\/\//i.test(cleanUrl) || cleanUrl.startsWith('data:')) {
-      return cleanUrl
-    }
-
-    const apiDomain = (process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/v1\/?$/, '')
-    if (!apiDomain) return cleanUrl
-
-    if (cleanUrl.startsWith('/')) {
-      return `${apiDomain}${cleanUrl}`
-    }
-
-    return `${apiDomain}/${cleanUrl}`
-  }
 
   const loadProfile = async () => {
     try {
@@ -350,7 +333,8 @@ export default function Profile() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex min-h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header />
 
@@ -961,7 +945,7 @@ export default function Profile() {
                                 {post.imageUrls.map((url: string, idx: number) => (
                                   <img
                                     key={idx}
-                                    src={url}
+                                    src={normalizeImageUrl(url)}
                                     alt={`Post image ${idx + 1}`}
                                     className="h-16 w-16 object-cover rounded"
                                   />
@@ -1009,5 +993,6 @@ export default function Profile() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

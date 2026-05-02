@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchBackend, isBackendFetchAbort } from '@/lib/server/fetch-backend'
+import { getPublicApiOrigin } from '@/lib/server/public-api-base'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN
-  ? process.env.NEXT_PUBLIC_API_DOMAIN.replace('/api/v1', '')
-  : 'http://localhost:3000'
+const API_BASE_URL = getPublicApiOrigin()
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       try {
         console.log('🔄 Thử đăng nhập với:', attempt.identifier)
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        const response = await fetchBackend(`${API_BASE_URL}/api/v1/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -70,7 +70,10 @@ export async function POST(request: NextRequest) {
 
       } catch (err) {
         console.error('❌ Lỗi khi thử format:', attempt.identifier, err)
-        lastError = { data: { message: String(err) }, status: 500 }
+        const msg = isBackendFetchAbort(err)
+          ? 'Hết thời gian chờ backend. Kiểm tra NEXT_PUBLIC_API_DOMAIN và máy chủ API có đang chạy không.'
+          : String(err)
+        lastError = { data: { message: msg }, status: isBackendFetchAbort(err) ? 504 : 500 }
       }
     }
 

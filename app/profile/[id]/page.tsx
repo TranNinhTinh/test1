@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { ProfileService, PublicProfileResponse } from '@/lib/api/profile-new.service'
 import { PostService } from '@/lib/api/post.service'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 export default function PublicProfile() {
     const router = useRouter()
@@ -90,7 +92,8 @@ export default function PublicProfile() {
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50">
+        <AppShell>
+        <div className="flex min-h-screen flex-col bg-surface-lowest">
             {/* Header */}
             <Header />
 
@@ -108,9 +111,9 @@ export default function PublicProfile() {
                     <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
                         <div className="flex flex-col items-center text-center mb-8">
                             {/* Avatar */}
-                            {profile.avatarUrl && (
+                            {resolveMediaUrl(profile.avatarUrl) && (
                                 <img
-                                    src={profile.avatarUrl}
+                                    src={resolveMediaUrl(profile.avatarUrl)}
                                     alt="Ảnh đại diện"
                                     className="w-32 h-32 rounded-full object-cover border-4 border-blue-600 mb-6 shadow-lg"
                                 />
@@ -355,5 +358,6 @@ export default function PublicProfile() {
                 </div>
             </div>
         </div>
+        </AppShell>
     )
 }

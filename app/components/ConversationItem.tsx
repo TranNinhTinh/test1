@@ -1,4 +1,5 @@
 import { Conversation } from '@/lib/api/chat.service'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -40,9 +41,9 @@ export default function ConversationItem({
       {/* Avatar */}
       <div className="relative flex-shrink-0">
         <div className="w-12 h-12 rounded-full bg-gray-300 overflow-hidden">
-          {otherUserAvatar ? (
+          {resolveMediaUrl(otherUserAvatar) ? (
             <img
-              src={otherUserAvatar}
+              src={resolveMediaUrl(otherUserAvatar)}
               alt={otherUserName || 'User'}
               className="w-full h-full object-cover"
             />

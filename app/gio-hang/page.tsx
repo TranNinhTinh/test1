@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AppShell from '@/app/components/AppShell'
+import Header from '@/app/components/Header'
 import { AuthService } from '@/lib/api/auth.service'
 import { quoteService, type Quote, type QuoteWithRevisions } from '@/lib/api/quote.service'
 import { PostService } from '@/lib/api/post.service'
@@ -242,25 +244,17 @@ export default function GioHangPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Link href="/home" className="text-gray-600 hover:text-gray-900">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Chào giá của tôi</h1>
-            </div>
-          </div>
+    <AppShell>
+    <div className="min-h-screen bg-surface-lowest">
+      <Header />
+      <div className="border-b border-outline-variant/60 bg-surface shadow-app-bar">
+        <div className="app-container max-w-5xl py-app-sm">
+          <h1 className="text-xl font-bold text-foreground">Chào giá của tôi</h1>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="app-container max-w-5xl py-app-lg">
         {error && (
           <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
             {error}
@@ -448,5 +442,6 @@ export default function GioHangPage() {
         )}
       </div>
     </div>
+    </AppShell>
   )
 }

@@ -6,6 +6,7 @@ import { chatService } from '@/lib/api/chat.service'
 import { ProfileService } from '@/lib/api/profile.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import { useRouter } from 'next/navigation'
+import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
 
 interface QuoteSectionProps {
   postId: string
@@ -16,25 +17,6 @@ export default function QuoteSection({ postId, isPostOwner }: QuoteSectionProps)
   const router = useRouter()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(false)
-
-  const normalizeImageUrl = (rawUrl?: string | null) => {
-    if (!rawUrl) return ''
-    const cleanUrl = rawUrl.trim()
-    if (!cleanUrl) return ''
-
-    if (/^https?:\/\//i.test(cleanUrl) || cleanUrl.startsWith('data:')) {
-      return cleanUrl
-    }
-
-    const apiDomain = (process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/v1\/?$/, '')
-    if (!apiDomain) return cleanUrl
-
-    if (cleanUrl.startsWith('/')) {
-      return `${apiDomain}${cleanUrl}`
-    }
-
-    return `${apiDomain}/${cleanUrl}`
-  }
 
   const normalizeQuoteStatus = (status?: string): Quote['status'] => {
     const normalized = status?.toUpperCase()

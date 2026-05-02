@@ -1,12 +1,13 @@
 // Cấu hình API
-// Domain options
+import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
+
 const DOMAIN_OPTIONS = {
   LOCALHOST: 'http://localhost:3000/api/v1',
-  NGROK: 'https://postmaxillary-variably-justa.ngrok-free.dev/api/v1',
+  NGROK: DEFAULT_PUBLIC_API_V1,
 }
 
-// Chọn domain (thay đổi ở đây để switch giữa localhost và ngrok)
-const SELECTED_DOMAIN = process.env.NEXT_PUBLIC_API_DOMAIN || DOMAIN_OPTIONS.LOCALHOST
+// Chọn domain: env ưu tiên; mặc định ngrok (cùng DEFAULT_PUBLIC_API_V1 trong public-api-base)
+const SELECTED_DOMAIN = process.env.NEXT_PUBLIC_API_DOMAIN || DOMAIN_OPTIONS.NGROK
 
 export const API_CONFIG = {
   // Base URL của API backend

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { chatService, type Conversation, type Message } from '@/lib/api/chat.service'
 import { ProfileService } from '@/lib/api/profile.service'
 import { quoteService } from '@/lib/api/quote.service'
@@ -11,6 +12,7 @@ import { AuthService } from '@/lib/api/auth.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import ChatQuoteFlow from '@/app/components/ChatQuoteFlow'
 import ConversationItem from '@/app/components/ConversationItem'
+import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
 
 interface User {
   id: string
@@ -64,25 +66,6 @@ export default function TinNhanPage() {
   const [conversationViewedRawUnread, setConversationViewedRawUnread] = useState<Record<string, number>>({})
   const selectedConversationRef = useRef<Conversation | null>(null)
   const currentUserRef = useRef<User | null>(null)
-
-  const normalizeImageUrl = (rawUrl?: string | null) => {
-    if (!rawUrl) return ''
-    const cleanUrl = rawUrl.trim()
-    if (!cleanUrl) return ''
-
-    if (/^https?:\/\//i.test(cleanUrl) || cleanUrl.startsWith('data:')) {
-      return cleanUrl
-    }
-
-    const apiDomain = (process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/v1\/?$/, '')
-    if (!apiDomain) return cleanUrl
-
-    if (cleanUrl.startsWith('/')) {
-      return `${apiDomain}${cleanUrl}`
-    }
-
-    return `${apiDomain}/${cleanUrl}`
-  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -864,7 +847,8 @@ export default function TinNhanPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header currentUser={currentUser} />
 
@@ -1074,5 +1058,6 @@ export default function TinNhanPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getBackendApiOrigin } from '@/lib/server/backend-origin'
+import { fetchBackend, isBackendFetchAbort } from '@/lib/server/fetch-backend'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN
-  ? process.env.NEXT_PUBLIC_API_DOMAIN.replace('/api/v1', '')
-  : 'http://localhost:3000'
+const API_BASE_URL = getBackendApiOrigin()
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         console.log(`\n🔄 Attempt ${attemptNumber}/${phoneFormats.length}`)
         console.log('📤 Payload:', JSON.stringify({ ...payload, password: '***' }, null, 2))
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+        const response = await fetchBackend(`${API_BASE_URL}/api/v1/auth/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -114,7 +114,10 @@ export async function POST(request: NextRequest) {
 
       } catch (err) {
         console.error(`❌ Exception with phone ${phoneFormat}:`, err)
-        lastError = { data: { success: false, message: String(err) }, status: 500 }
+        const msg = isBackendFetchAbort(err)
+          ? 'Hết thời gian chờ backend. Kiểm tra NEXT_PUBLIC_API_DOMAIN và máy chủ API.'
+          : String(err)
+        lastError = { data: { success: false, message: msg }, status: isBackendFetchAbort(err) ? 504 : 500 }
       }
     }
 
@@ -122,7 +125,7 @@ export async function POST(request: NextRequest) {
     if (phoneFormats.length === 0) {
       console.log('⚠️ No phone provided, trying without phone')
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+        const response = await fetchBackend(`${API_BASE_URL}/api/v1/auth/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -134,7 +137,10 @@ export async function POST(request: NextRequest) {
         const data = await response.json()
         return NextResponse.json(data, { status: response.status })
       } catch (err) {
-        lastError = { data: { success: false, message: String(err) }, status: 500 }
+        const msg = isBackendFetchAbort(err)
+          ? 'Hết thời gian chờ backend. Kiểm tra NEXT_PUBLIC_API_DOMAIN và máy chủ API.'
+          : String(err)
+        lastError = { data: { success: false, message: msg }, status: isBackendFetchAbort(err) ? 504 : 500 }
       }
     }
 

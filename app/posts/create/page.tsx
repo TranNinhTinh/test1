@@ -1,16 +1,34 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import AppShell from '@/app/components/AppShell'
+import Header from '@/app/components/Header'
+import AppField from '@/app/components/ui/AppField'
+import AppTextarea from '@/app/components/ui/AppTextarea'
+import AppButton from '@/app/components/ui/AppButton'
 import { PostService } from '@/lib/api/post.service'
 import { AuthService } from '@/lib/api/auth.service'
 import type { CreatePostDto } from '@/lib/api'
+import { resolveMediaUrl } from '@/lib/media-url'
+
+function MobileFieldSection({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-foreground">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center text-brand [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+        <span className="text-sm font-semibold tracking-tight">{title}</span>
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export default function CreatePostPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const editId = searchParams.get('edit') // Lấy ID bài đăng cần edit
+  const editId = searchParams.get('edit')
   const isEditMode = !!editId
 
   const [loading, setLoading] = useState(false)
@@ -18,6 +36,7 @@ export default function CreatePostPage() {
   const [error, setError] = useState('')
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [imageUrlDraft, setImageUrlDraft] = useState('')
 
   const [formData, setFormData] = useState<CreatePostDto>({
     title: '',
@@ -25,11 +44,10 @@ export default function CreatePostPage() {
     location: '',
     desiredTime: '',
     budget: undefined,
-    imageUrls: []
+    imageUrls: [],
   })
 
   useEffect(() => {
-    // Kiểm tra authentication
     if (!AuthService.isAuthenticated()) {
       alert('Vui lòng đăng nhập để tạo bài đăng!')
       router.push('/dang-nhap')
@@ -37,7 +55,6 @@ export default function CreatePostPage() {
     }
     setCheckingAuth(false)
 
-    // Nếu là edit mode, load dữ liệu bài đăng
     if (isEditMode && editId) {
       loadPostData(editId)
     }
@@ -46,19 +63,15 @@ export default function CreatePostPage() {
   const loadPostData = async (postId: string) => {
     try {
       setLoadingPost(true)
-      console.log('📖 Loading post for edit:', postId)
       const post = await PostService.getPostById(postId)
 
-      console.log('✅ Post loaded:', post)
-
-      // Populate form với dữ liệu từ post
       setFormData({
         title: post.title || '',
         description: post.description || '',
         location: post.location || '',
         desiredTime: post.desiredTime ? new Date(post.desiredTime).toISOString().slice(0, 16) : '',
         budget: post.budget || undefined,
-        imageUrls: post.imageUrls || []
+        imageUrls: post.imageUrls || [],
       })
     } catch (err: any) {
       console.error('❌ Lỗi load bài đăng:', err)
@@ -69,11 +82,20 @@ export default function CreatePostPage() {
     }
   }
 
+  const addImageUrl = () => {
+    const u = imageUrlDraft.trim()
+    if (!u) return
+    setFormData((prev) => ({
+      ...prev,
+      imageUrls: [...(prev.imageUrls || []), u],
+    }))
+    setImageUrlDraft('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    // Validation
     if (!formData.title.trim()) {
       setError('Vui lòng nhập tiêu đề!')
       return
@@ -86,31 +108,39 @@ export default function CreatePostPage() {
     setLoading(true)
 
     try {
+      const rawBudget = formData.budget
+      const budgetNum =
+        rawBudget === undefined || rawBudget === null
+          ? undefined
+          : typeof rawBudget === 'number'
+            ? rawBudget
+            : Number(rawBudget)
+      const budget =
+        budgetNum !== undefined && Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined
+
       const postData: CreatePostDto = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         ...(formData.location && { location: formData.location.trim() }),
         ...(formData.desiredTime && { desiredTime: new Date(formData.desiredTime).toISOString() }),
-        ...(formData.budget && { budget: Number(formData.budget) }),
-        ...((!isEditMode && selectedFiles.length === 0 && formData.imageUrls && formData.imageUrls.length > 0) && { imageUrls: formData.imageUrls }),
-        ...((isEditMode && formData.imageUrls && formData.imageUrls.length > 0) && { imageUrls: formData.imageUrls })
+        ...(budget !== undefined && { budget }),
+        ...(!isEditMode &&
+          selectedFiles.length === 0 &&
+          formData.imageUrls &&
+          formData.imageUrls.length > 0 && { imageUrls: formData.imageUrls }),
+        ...(isEditMode && formData.imageUrls && formData.imageUrls.length > 0 && { imageUrls: formData.imageUrls }),
       }
 
       let result
 
       if (isEditMode && editId) {
-        // Chế độ chỉnh sửa
-        console.log('✏️ Updating post:', editId, postData)
         result = await PostService.updatePost(editId, postData)
-        console.log('✅ Post updated successfully:', result)
         alert('Cập nhật bài đăng thành công!')
       } else {
-        // Chế độ tạo mới
-        console.log('📝 Creating post with data:', postData)
-        result = selectedFiles.length > 0
-          ? await PostService.createPostWithFiles(postData, selectedFiles)
-          : await PostService.createPost(postData)
-        console.log('✅ Post created successfully:', result)
+        result =
+          selectedFiles.length > 0
+            ? await PostService.createPostWithFiles(postData, selectedFiles)
+            : await PostService.createPost(postData)
         alert('Tạo bài đăng thành công!')
       }
 
@@ -118,7 +148,6 @@ export default function CreatePostPage() {
     } catch (err: any) {
       console.error('❌ Lỗi:', err)
 
-      // Kiểm tra nếu là lỗi authentication
       if (err.message.includes('đăng nhập') || err.message.includes('phiên')) {
         setError(err.message)
         setTimeout(() => {
@@ -134,10 +163,10 @@ export default function CreatePostPage() {
 
   if (checkingAuth || loadingPost) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-surface-lowest">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+          <p className="text-foreground-muted">
             {checkingAuth ? 'Đang kiểm tra đăng nhập...' : 'Đang tải bài đăng...'}
           </p>
         </div>
@@ -145,146 +174,142 @@ export default function CreatePostPage() {
     )
   }
 
+  const locIcon = (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+  const calIcon = (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+  const moneyIcon = (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+  const imgIcon = (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <Link
-            href={isEditMode ? "/bai-dang-cua-toi" : "/home"}
-            className="text-blue-500 hover:text-blue-600 flex items-center gap-2 mb-4"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Quay lại
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-800">
-            {isEditMode ? 'Chỉnh sửa bài đăng' : 'Tạo bài đăng mới'}
-          </h1>
-          <p className="text-gray-600 mt-2">
-            {isEditMode
-              ? 'Cập nhật thông tin bài đăng của bạn'
-              : 'Mô tả công việc bạn cần để tìm thợ phù hợp'
-            }
-          </p>
-        </div>
+    <AppShell>
+      <div className="min-h-screen bg-surface-lowest py-app-lg">
+        <Header />
+        <div className="app-container max-w-3xl">
+          <div className="mb-app-md">
+            <Link
+              href={isEditMode ? '/bai-dang-cua-toi' : '/home'}
+              className="mb-app-sm flex items-center gap-2 text-sm font-medium text-brand transition-colors hover:text-brand-dark"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Quay lại
+            </Link>
+          </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+          <div className="overflow-hidden rounded-app-xl border border-outline-variant/60 bg-surface shadow-float">
+            <div
+              className={
+                isEditMode
+                  ? 'border-b border-outline-variant/50 bg-surface-highest/40 px-app-md py-app-md'
+                  : 'bg-gradient-to-r from-[#0D9488] to-[#06B6D4] px-app-md py-app-md text-white'
+              }
+            >
+              <h1 className={`text-xl font-bold sm:text-2xl ${isEditMode ? 'text-foreground' : ''}`}>
+                {isEditMode ? 'Chỉnh sửa bài đăng' : 'Tạo bài đăng mới'}
+              </h1>
+              <p className={`mt-1 text-sm ${isEditMode ? 'text-foreground-muted' : 'text-white/90'}`}>
+                {isEditMode ? 'Cập nhật thông tin bài đăng của bạn' : 'Mô tả công việc bạn cần để tìm thợ phù hợp'}
+              </p>
+            </div>
 
-            {/* Tiêu đề */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tiêu đề <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
+            <form onSubmit={handleSubmit} className="space-y-app-md p-app-md">
+              {error && (
+                <div
+                  className="rounded-app-lg border border-red-200 bg-red-50 px-app-sm py-3 text-sm text-red-800"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+
+              <AppField
+                label="Tiêu đề *"
+                name="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="Ví dụ: Cần thợ sửa điện nước tại nhà"
+                placeholder="Nhập tiêu đề bài đăng..."
                 required
+                autoComplete="off"
               />
-            </div>
 
-            {/* Mô tả */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mô tả chi tiết <span className="text-red-500">*</span>
-              </label>
-              <textarea
+              <AppTextarea
+                label="Mô tả chi tiết *"
+                name="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-                placeholder="Mô tả chi tiết công việc cần làm..."
-                rows={6}
+                placeholder="Mô tả chi tiết về dịch vụ bạn cần..."
+                rows={5}
                 required
               />
-            </div>
 
-            {/* Địa điểm */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Địa điểm
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="Ví dụ: Quận 1, TP.HCM"
-              />
-            </div>
-
-            {/* Thời gian mong muốn */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian mong muốn
-              </label>
-              <input
-                type="datetime-local"
-                value={formData.desiredTime}
-                onChange={(e) => setFormData({ ...formData, desiredTime: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            {/* Ngân sách */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ngân sách (VNĐ)
-              </label>
-              <input
-                type="number"
-                value={formData.budget || ''}
-                onChange={(e) => setFormData({ ...formData, budget: e.target.value ? Number(e.target.value) : undefined })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="Ví dụ: 500000"
-                min="0"
-              />
-            </div>
-
-            {/* Hình ảnh */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hình ảnh
-              </label>
-              <div className="space-y-3">
+              <MobileFieldSection title="Hình ảnh (không bắt buộc)" icon={imgIcon}>
                 {!isEditMode && (
-                  <div>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('post-files')?.click()}
+                      className="flex w-full flex-col items-center justify-center rounded-app-lg border-2 border-dashed border-brand/45 bg-brand-tint/25 px-app-md py-app-md text-sm font-medium text-brand transition-colors hover:bg-brand-tint/40"
+                    >
+                      <span>+ Chọn ảnh từ máy tính</span>
+                      <span className="mt-1 text-xs font-normal text-foreground-muted">PNG, JPG, GIF, WebP — tối đa 10 ảnh</span>
+                    </button>
                     <input
+                      id="post-files"
                       type="file"
                       accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                       multiple
+                      className="sr-only"
                       onChange={(e) => {
                         const files = Array.from(e.target.files || [])
                         setSelectedFiles(files)
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Chọn tối đa 10 ảnh, mỗi ảnh tối đa 5MB.</p>
                   </div>
                 )}
 
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <AppField
+                      name="imageUrl"
+                      value={imageUrlDraft}
+                      onChange={(e) => setImageUrlDraft(e.target.value)}
+                      placeholder="Nhập URL hình ảnh..."
+                      aria-label="URL hình ảnh"
+                    />
+                  </div>
+                  <AppButton type="button" variant="filled" className="w-full shrink-0 sm:w-auto sm:min-h-[52px]" onClick={addImageUrl}>
+                    Thêm URL
+                  </AppButton>
+                </div>
+
                 {!isEditMode && selectedFiles.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <p className="text-sm font-medium text-blue-800 mb-2">Đã chọn {selectedFiles.length} file:</p>
-                    <ul className="space-y-1 text-sm text-blue-700">
+                  <div className="rounded-app-lg border border-brand/25 bg-brand-tint/30 p-app-sm">
+                    <p className="mb-2 text-sm font-medium text-brand-dark">Đã chọn {selectedFiles.length} file</p>
+                    <ul className="space-y-1 text-sm text-foreground">
                       {selectedFiles.map((file, index) => (
                         <li key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between gap-3">
                           <span className="truncate">{file.name}</span>
                           <button
                             type="button"
-                            onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
-                            className="text-red-600 hover:text-red-700"
+                            onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== index))}
+                            className="shrink-0 text-sm font-medium text-app-error hover:underline"
                           >
                             Xóa
                           </button>
@@ -294,31 +319,32 @@ export default function CreatePostPage() {
                   </div>
                 )}
 
-                {/* Display added images */}
                 {formData.imageUrls && formData.imageUrls.length > 0 && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {formData.imageUrls.map((url, index) => (
-                      <div key={index} className="relative group">
+                      <div key={`${url}-${index}`} className="group relative">
                         <img
-                          src={url}
-                          alt={`Hình ảnh ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                          src={resolveMediaUrl(url)}
+                          alt=""
+                          className="h-32 w-full rounded-app-md border border-outline-variant/60 object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" fill="%23d1d5db" viewBox="0 0 24 24"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/%3E%3C/svg%3E'
+                            e.currentTarget.src =
+                              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" fill="%23d1d5db" viewBox="0 0 24 24"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/%3E%3C/svg%3E'
                           }}
                         />
                         <button
                           type="button"
                           onClick={() => {
-                            const currentImageUrls = formData.imageUrls || []
+                            const current = formData.imageUrls || []
                             setFormData({
                               ...formData,
-                              imageUrls: currentImageUrls.filter((_, i) => i !== index)
+                              imageUrls: current.filter((_, i) => i !== index),
                             })
                           }}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                          className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white opacity-0 shadow-md transition group-hover:opacity-100"
+                          aria-label="Xóa ảnh"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
@@ -326,32 +352,65 @@ export default function CreatePostPage() {
                     ))}
                   </div>
                 )}
-              </div>
-            </div>
+              </MobileFieldSection>
 
-            {/* Buttons */}
-            <div className="flex gap-4 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !formData.title.trim() || !formData.description.trim()}
-                className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {loading
-                  ? (isEditMode ? 'Đang cập nhật...' : 'Đang tạo...')
-                  : (isEditMode ? 'Cập nhật bài đăng' : 'Tạo bài đăng')
-                }
-              </button>
-            </div>
-          </form>
+              <MobileFieldSection title="Địa điểm dịch vụ" icon={locIcon}>
+                <AppField
+                  label={undefined}
+                  name="location"
+                  value={formData.location || ''}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Nhập địa điểm..."
+                  autoComplete="street-address"
+                />
+              </MobileFieldSection>
+
+              <MobileFieldSection title="Thời gian mong muốn" icon={calIcon}>
+                <div className="rounded-app-lg border border-outline-variant/80 bg-surface px-app-sm shadow-inner-soft transition-[border-color,box-shadow] duration-app-fast ease-app-emphasized focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/18">
+                  <input
+                    type="datetime-local"
+                    name="desiredTime"
+                    value={formData.desiredTime}
+                    onChange={(e) => setFormData({ ...formData, desiredTime: e.target.value })}
+                    className="w-full border-0 bg-transparent py-3 text-foreground outline-none focus:ring-0"
+                  />
+                </div>
+              </MobileFieldSection>
+
+              <MobileFieldSection title="Ngân sách (VNĐ)" icon={moneyIcon}>
+                <AppField
+                  label={undefined}
+                  name="budget"
+                  type="number"
+                  min={0}
+                  value={formData.budget ?? ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      budget: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="Nhập ngân sách..."
+                />
+              </MobileFieldSection>
+
+              <div className="flex flex-col gap-3 border-t border-outline-variant/50 pt-app-md sm:flex-row">
+                <AppButton type="button" variant="outlined" className="flex-1" onClick={() => router.back()}>
+                  Hủy
+                </AppButton>
+                <AppButton
+                  type="submit"
+                  variant="filled"
+                  className="flex-1"
+                  disabled={loading || !formData.title.trim() || !formData.description.trim()}
+                >
+                  {loading ? (isEditMode ? 'Đang cập nhật...' : 'Đang tạo...') : isEditMode ? 'Cập nhật bài đăng' : 'Tạo bài đăng'}
+                </AppButton>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

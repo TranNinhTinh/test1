@@ -1,0 +1,59 @@
+/**
+ * Web design tokens — synchronized with Mobile:
+ * Mobile/lib/core/theme/app_colors.dart, app_spacing.dart, app_radii.dart, app_theme.dart, app_motion.dart
+ */
+:root {
+  /* AppColors (Flutter) */
+  --color-seed: #14b8a6;
+  --color-seed-dark: #0d9488;
+  --color-seed-light: #2dd4bf;
+  --color-brand-tint: #e6fffa;
+
+  /* Material 3–aligned surfaces (light, seed #14B8A6) */
+  --color-surface: #fffbfe;
+  --color-surface-container-lowest: #f7fafa;
+  --color-surface-container-highest: #e7eef0;
+  --color-on-surface: #1d1b20;
+  --color-on-surface-variant: #49454f;
+  --color-outline: #79747e;
+  --color-outline-variant: rgba(121, 116, 126, 0.35);
+  --color-error: #b3261e;
+  --color-on-error: #ffffff;
+  --color-on-primary: #ffffff;
+
+  /* Spacing — AppSpacing 8px grid */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 32px;
+  --space-xl: 40px;
+  --space-xxl: 48px;
+
+  /* Radii — AppRadii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-xxl: 24px;
+  --radius-sheet-top: 24px;
+
+  /* Motion — AppMotion */
+  --motion-fast: 160ms;
+  --motion-medium: 260ms;
+  --motion-slow: 380ms;
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0.3, 0, 0.67, 0);
+
+  /* Layout */
+  --app-sidebar-width: 256px;
+  --app-bottom-nav-height: 72px;
+  --app-content-max: 1280px;
+
+  /* Elevation — web polish (still neutral + brand tint) */
+  --shadow-xs: 0 1px 2px rgba(29, 27, 32, 0.04);
+  --shadow-sm: 0 1px 3px rgba(29, 27, 32, 0.06), 0 1px 2px rgba(29, 27, 32, 0.04);
+  --shadow-md: 0 4px 12px rgba(29, 27, 32, 0.07), 0 2px 4px rgba(29, 27, 32, 0.04);
+  --shadow-lg: 0 12px 40px rgba(29, 27, 32, 0.09), 0 4px 12px rgba(20, 184, 166, 0.06);
+  --shadow-float: 0 24px 48px -12px rgba(29, 27, 32, 0.12);
+}

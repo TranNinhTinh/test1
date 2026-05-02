@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { notificationService, type Notification } from '@/lib/api/notification.service'
 import { notificationSocketService } from '@/lib/api/notification-socket.service'
 import { quoteService, type Quote } from '@/lib/api/quote.service'
 import { ProfileService } from '@/lib/api/profile.service'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 export default function ThongBaoPage() {
   const router = useRouter()
@@ -447,7 +449,8 @@ export default function ThongBaoPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex min-h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header />
 
@@ -692,9 +695,9 @@ export default function ThongBaoPage() {
                       >
                         {/* Thông tin thợ */}
                         <div className="flex items-center gap-3 mb-4 bg-white rounded-lg p-3 shadow-sm">
-                          {providerAvatar ? (
+                          {resolveMediaUrl(providerAvatar) ? (
                             <img
-                              src={providerAvatar}
+                              src={resolveMediaUrl(providerAvatar)}
                               alt={providerName}
                               className="w-14 h-14 rounded-full object-cover ring-2 ring-orange-200"
                             />
@@ -846,5 +849,6 @@ export default function ThongBaoPage() {
         </div>
       )}
     </div>
+    </AppShell>
   )
 }

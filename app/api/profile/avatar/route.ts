@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
 
 // Keep the backend base URL consistent across profile proxy routes.
 const getDomainUrl = () => {
   let baseDomain = process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL
   if (!baseDomain) {
-    console.warn('❌ API_DOMAIN not configured, defaulting backend to localhost:3001')
-    baseDomain = 'http://localhost:3001/api/v1'
+    console.warn('❌ API_DOMAIN not configured, defaulting to DEFAULT_PUBLIC_API_V1')
+    baseDomain = DEFAULT_PUBLIC_API_V1
   }
 
   baseDomain = baseDomain.replace(/\/api\/v1\/?$/, '')

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPublicApiOrigin } from '@/lib/server/public-api-base'
+import { normalizeBudgetInput } from '@/lib/server/normalize-budget'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN ? process.env.NEXT_PUBLIC_API_DOMAIN.replace('/api/v1', '') : 'http://localhost:3000'
+const API_BASE_URL = getPublicApiOrigin()
 
 // Get post by ID
 export async function GET(
@@ -33,8 +35,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json()
+    const body = (await request.json()) as Record<string, unknown>
     const authHeader = request.headers.get('authorization')
+
+    if ('budget' in body) {
+      const b = normalizeBudgetInput(body.budget)
+      if (b === undefined) delete body.budget
+      else body.budget = b
+    }
 
     console.log('🔵 Proxy Update Post Request:', params.id, body)
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { PostService } from '@/lib/api/post.service'
 import { AuthService } from '@/lib/api/auth.service'
 import { ProfileService } from '@/lib/api/profile-new.service'
@@ -103,7 +104,8 @@ export default function MyPostsPage() {
   const closedPosts = posts.filter(p => p.status === 'CLOSED').length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AppShell>
+    <div className="min-h-screen bg-surface-lowest">
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -286,5 +288,6 @@ export default function MyPostsPage() {
         )}
       </div>
     </div>
+    </AppShell>
   )
 }

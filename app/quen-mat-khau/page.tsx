@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import ThoTotLogo from '../components/ThoTotLogo'
+import AppAuthShell from '@/app/components/AppAuthShell'
+import AppButton from '@/app/components/ui/AppButton'
+import AppField from '@/app/components/ui/AppField'
 import { AuthService } from '@/lib/api/auth.service'
 
 export default function QuenMatKhau() {
@@ -12,7 +14,7 @@ export default function QuenMatKhau() {
   const [successMessage, setSuccessMessage] = useState('')
   const [formData, setFormData] = useState({
     email: '',
-    phone: ''
+    phone: '',
   })
 
   const requestResetLink = async () => {
@@ -43,8 +45,9 @@ export default function QuenMatKhau() {
         phone: contactType === 'phone' ? identifier : undefined,
       })
       setSuccessMessage(result.message || 'Nếu tài khoản tồn tại, chúng tôi đã gửi link đặt lại mật khẩu về email của bạn')
-    } catch (err: any) {
-      setError(err?.message || 'Không thể gửi yêu cầu quên mật khẩu')
+    } catch (err: unknown) {
+      const e = err as { message?: string }
+      setError(e?.message || 'Không thể gửi yêu cầu quên mật khẩu')
     } finally {
       setLoading(false)
     }
@@ -55,108 +58,70 @@ export default function QuenMatKhau() {
     await requestResetLink()
   }
 
+  const segment = (active: boolean) =>
+    `flex-1 rounded-app-md py-2 px-app-sm text-sm font-medium transition-colors duration-app-fast ease-app-emphasized ${
+      active ? 'bg-surface text-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'
+    }`
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
-        {/* Phần đầu trang */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <ThoTotLogo className="w-56 md:w-64" />
-          </div>
-          <p className="text-gray-600 text-sm">Kết nối khách hàng và thợ chuyên nghiệp</p>
+    <AppAuthShell title="Quên mật khẩu" subtitle="Nhập thông tin tài khoản, chúng tôi sẽ gửi link đặt lại mật khẩu qua email" showBack backHref="/dang-nhap">
+      {error ? (
+        <div className="mb-app-sm rounded-app-md border border-red-200 bg-red-50 px-app-sm py-2 text-sm text-app-error" role="alert">
+          {error}
         </div>
+      ) : null}
 
-        {/* Tiêu đề */}
-        <h2 className="text-xl font-bold text-center text-gray-800 mb-2">Quên mật khẩu</h2>
-        <p className="text-center text-sm text-gray-600 mb-6">
-          Nhập thông tin tài khoản, chúng tôi sẽ gửi link đặt lại mật khẩu qua email
-        </p>
-
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-            {successMessage}
-          </div>
-        )}
-
-        <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-          <button
-            type="button"
-            onClick={() => setContactType('email')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium text-sm transition duration-200 ${
-              contactType === 'email'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            Email
-          </button>
-          <button
-            type="button"
-            onClick={() => setContactType('phone')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium text-sm transition duration-200 ${
-              contactType === 'phone'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            Số điện thoại
-          </button>
+      {successMessage ? (
+        <div className="mb-app-sm rounded-app-md border border-emerald-200 bg-emerald-50 px-app-sm py-2 text-sm text-emerald-800" role="status">
+          {successMessage}
         </div>
+      ) : null}
 
-        <form onSubmit={handleSendRequest} className="space-y-4">
-          {contactType === 'email' ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="Nhập email của bạn"
-                required
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số điện thoại
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="Nhập số điện thoại của bạn"
-                required
-              />
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 mt-6"
-          >
-            {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu'}
-          </button>
-        </form>
-
-        {/* Chân trang */}
-        <div className="mt-6 text-center text-sm text-gray-600">
-          Nhớ mật khẩu?{' '}
-          <Link href="/dang-nhap" className="text-blue-500 hover:text-blue-600 font-medium">
-            Đăng nhập
-          </Link>
-        </div>
+      <div className="mb-app-md flex rounded-app-lg bg-surface-highest/60 p-1">
+        <button type="button" onClick={() => setContactType('email')} className={segment(contactType === 'email')}>
+          Email
+        </button>
+        <button type="button" onClick={() => setContactType('phone')} className={segment(contactType === 'phone')}>
+          Số điện thoại
+        </button>
       </div>
-    </div>
+
+      <form onSubmit={handleSendRequest} className="space-y-app-md">
+        {contactType === 'email' ? (
+          <AppField
+            label="Email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            placeholder="Nhập email của bạn"
+            required
+            autoComplete="email"
+          />
+        ) : (
+          <AppField
+            label="Số điện thoại"
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            placeholder="Nhập số điện thoại của bạn"
+            required
+            autoComplete="tel"
+          />
+        )}
+
+        <AppButton type="submit" variant="filled" className="mt-app-sm w-full" disabled={loading}>
+          {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu'}
+        </AppButton>
+      </form>
+
+      <p className="mt-app-md text-center text-sm text-foreground-muted">
+        Nhớ mật khẩu?{' '}
+        <Link href="/dang-nhap" className="font-semibold text-brand hover:text-brand-dark">
+          Đăng nhập
+        </Link>
+      </p>
+    </AppAuthShell>
   )
 }

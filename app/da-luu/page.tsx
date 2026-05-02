@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { ProfileService } from '@/lib/api/profile-new.service'
 import { savedPostService } from '@/lib/api/saved-post.service'
@@ -109,7 +110,8 @@ export default function SavedPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header />
 
@@ -334,5 +336,6 @@ export default function SavedPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

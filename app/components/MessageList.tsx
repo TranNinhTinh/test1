@@ -1,5 +1,6 @@
 import { Message } from '@/lib/api/chat.service'
 import { useEffect, useRef } from 'react'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 interface MessageListProps {
   messages: Message[]
@@ -82,9 +83,9 @@ export default function MessageList({ messages, currentUserId }: MessageListProp
                   {/* Avatar */}
                   {!isOwn && (
                     <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
-                      {senderAvatar ? (
+                      {resolveMediaUrl(senderAvatar) ? (
                         <img
-                          src={senderAvatar}
+                          src={resolveMediaUrl(senderAvatar)}
                           alt={senderName}
                           className="w-full h-full object-cover"
                         />

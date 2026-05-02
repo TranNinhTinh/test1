@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
 
 // Use proper domain from environment, remove /api/v1 if present
 const getDomainUrl = () => {
   let baseDomain = process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL
   if (!baseDomain) {
-    console.warn('❌ API_DOMAIN not configured, defaulting to localhost')
-    baseDomain = 'http://localhost:3000/api/v1'
+    console.warn('❌ API_DOMAIN not configured, defaulting to DEFAULT_PUBLIC_API_V1')
+    baseDomain = DEFAULT_PUBLIC_API_V1
   }
   // Remove /api/v1 suffix if present to add it back consistently
   baseDomain = baseDomain.replace('/api/v1', '')

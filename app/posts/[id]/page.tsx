@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { PostService } from '@/lib/api/post.service'
-import { chatService } from '@/lib/api/chat.service'
 import { quoteService } from '@/lib/api/quote.service'
 import type { PostResponseDto } from '@/lib/api'
 import Image from 'next/image'
@@ -13,10 +13,12 @@ import SkeletonPostDetail from '@/app/components/SkeletonPostDetail'
 import ThoTotLogo from '@/app/components/ThoTotLogo'
 import QuoteSection from '@/app/components/QuoteSection'
 import AuthorCard from '@/app/components/AuthorCard'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 export default function PostDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const postId = params.id as string
 
   const [post, setPost] = useState<PostResponseDto | null>(null)
@@ -27,16 +29,8 @@ export default function PostDetailPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [authorAvatar, setAuthorAvatar] = useState<string | null>(null)
 
-  // Quote form states
-  const [showQuoteModal, setShowQuoteModal] = useState(false)
-  const [quoteForm, setQuoteForm] = useState({
-    price: '',
-    description: '',
-    estimatedDuration: ''
-  })
-  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false)
   const [quoteSuccessMessage, setQuoteSuccessMessage] = useState('')
-  const [hasSubmittedQuote, setHasSubmittedQuote] = useState(false)
+  const [hasMyQuote, setHasMyQuote] = useState(false)
 
   useEffect(() => {
     if (!quoteSuccessMessage) return
@@ -47,6 +41,13 @@ export default function PostDetailPage() {
 
     return () => clearTimeout(timer)
   }, [quoteSuccessMessage])
+
+  useEffect(() => {
+    if (searchParams.get('quoteSent') !== '1') return
+    setQuoteSuccessMessage('Gửi báo giá thành công!')
+    setHasMyQuote(true)
+    router.replace(`/posts/${postId}`, { scroll: false })
+  }, [searchParams, postId, router])
 
   useEffect(() => {
     // Kiểm tra authentication
@@ -112,6 +113,27 @@ export default function PostDetailPage() {
     }
   }
 
+  useEffect(() => {
+    if (!postId || !currentUser || !post) return
+    const userRole = currentUser?.accountType || currentUser?.role
+    const isWorker = userRole === 'WORKER' || userRole === 'provider'
+    const ownerId = post.customer?.id || post.customerId
+    const isOwner = ownerId && String(currentUser.id) === String(ownerId)
+    if (!isWorker || isOwner) return
+
+    quoteService
+      .getQuotesByPostId(postId)
+      .then((list) => {
+        const uid = String(currentUser.id)
+        const mine = list.some((q: { providerId?: string; status?: string }) => {
+          const st = String(q.status || '').toUpperCase()
+          return String(q.providerId) === uid && ['PENDING', 'IN_CHAT', 'ACCEPTED'].includes(st)
+        })
+        setHasMyQuote(mine)
+      })
+      .catch(() => {})
+  }, [postId, currentUser, post])
+
   const handlePostComment = async () => {
     if (!newComment.trim()) return
 
@@ -148,59 +170,6 @@ export default function PostDetailPage() {
     } catch (error: any) {
       console.error('Error deleting post:', error)
       alert(error.message || 'Không thể xóa bài đăng')
-    }
-  }
-
-  // Gửi báo giá (cho thợ/service provider)
-  const handleSubmitQuote = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!quoteForm.price.trim()) {
-      alert('Vui lòng nhập giá báo giá')
-      return
-    }
-
-    if (!post?.id) {
-      alert('Không thể xác định bài đăng')
-      return
-    }
-
-    setIsSubmittingQuote(true)
-
-    try {
-      console.log('📝 Submitting quote for post:', post.id)
-
-      // Gửi báo giá
-      const quoteResult = await quoteService.createQuote({
-        postId: post.id,
-        price: parseFloat(quoteForm.price),
-        description: quoteForm.description,
-        estimatedDuration: quoteForm.estimatedDuration ? parseInt(quoteForm.estimatedDuration) : undefined
-      })
-
-      console.log('✅ Quote created:', quoteResult)
-
-      // Báo giá thành công thì đóng modal ngay
-      setShowQuoteModal(false)
-      setQuoteForm({ price: '', description: '', estimatedDuration: '' })
-      setHasSubmittedQuote(true)
-      setQuoteSuccessMessage('Gửi báo giá thành công!')
-
-      // Tạo conversation với post owner
-      try {
-        const conversation = await chatService.createDirectConversation({
-          providerId: post.customerId
-        })
-        console.log('✅ Conversation created:', conversation)
-      } catch (conversationError) {
-        console.warn('⚠️ Quote đã gửi nhưng tạo conversation thất bại:', conversationError)
-      }
-
-    } catch (err: any) {
-      console.error('Error submitting quote:', err)
-      alert(err.message || 'Không thể gửi báo giá. Vui lòng thử lại.')
-    } finally {
-      setIsSubmittingQuote(false)
     }
   }
 
@@ -247,7 +216,8 @@ export default function PostDetailPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex min-h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header />
 
@@ -356,10 +326,11 @@ export default function PostDetailPage() {
                       {post.imageUrls.map((url, index) => (
                         <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
                           <Image
-                            src={url}
+                            src={resolveMediaUrl(url)}
                             alt={`Image ${index + 1}`}
                             fill
                             className="object-cover"
+                            unoptimized
                           />
                         </div>
                       ))}
@@ -444,7 +415,9 @@ export default function PostDetailPage() {
                       customerId={post.customer.id || post.customerId}
                       displayName={post.customer.fullName}
                       fullName={post.customer.fullName}
-                      avatarUrl={post.customer.avatarUrl}
+                      avatarUrl={resolveMediaUrl(
+                        post.customer.avatarUrl || (post.customer as { avatar?: string }).avatar,
+                      )}
                       isVerified={false}
                     />
                   </div>
@@ -476,7 +449,7 @@ export default function PostDetailPage() {
                     // Chỉ thợ mới có thể gửi báo giá, khách hàng không
                     if (isCustomer) return null
 
-                    if (hasSubmittedQuote) {
+                    if (hasMyQuote) {
                       return (
                         <div className="w-full py-3 bg-green-50 border border-green-200 text-green-700 rounded-lg font-semibold text-center">
                           Bạn đã gửi báo giá cho công việc này
@@ -486,7 +459,8 @@ export default function PostDetailPage() {
 
                     return (
                       <button
-                        onClick={() => setShowQuoteModal(true)}
+                        type="button"
+                        onClick={() => router.push(`/posts/${postId}/quote`)}
                         className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -516,97 +490,8 @@ export default function PostDetailPage() {
         </div>
       </div>
 
-      {/* Quote Modal */}
-      {showQuoteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Gửi báo giá</h2>
-              <button
-                onClick={() => setShowQuoteModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitQuote} className="p-6 space-y-4">
-              {/* Price */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giá báo giá (đ) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={quoteForm.price}
-                  onChange={(e) => setQuoteForm({ ...quoteForm, price: e.target.value })}
-                  placeholder="Nhập giá báo giá"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả công việc
-                </label>
-                <textarea
-                  value={quoteForm.description}
-                  onChange={(e) => setQuoteForm({ ...quoteForm, description: e.target.value })}
-                  placeholder="Mô tả chi tiết công việc bạn có thể làm..."
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Estimated Duration */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thời gian dự kiến (phút)
-                </label>
-                <input
-                  type="number"
-                  value={quoteForm.estimatedDuration}
-                  onChange={(e) => setQuoteForm({ ...quoteForm, estimatedDuration: e.target.value })}
-                  placeholder="Nhập thời gian (tính bằng phút)"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowQuoteModal(false)}
-                  className="flex-1 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingQuote}
-                  className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-green-400 transition-colors flex items-center justify-center gap-2"
-                >
-                  {isSubmittingQuote ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Đang gửi...</span>
-                    </>
-                  ) : (
-                    <span>Gửi báo giá</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
+    </AppShell>
   )
 }
 

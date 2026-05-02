@@ -1,9 +1,7 @@
 // src/lib/api/notification-socket.service.ts
 import { io, Socket } from 'socket.io-client'
 import { AuthService } from './auth.service'
-
-// Get socket URL - use current origin in development
-const socketUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000')
+import { getSocketIoOrigin } from './socket-origin'
 
 export interface Notification {
     id: string
@@ -37,9 +35,10 @@ class NotificationSocketService {
             return
         }
 
-        console.log('🔔 Connecting to notifications socket...')
+        const origin = getSocketIoOrigin()
+        console.log('🔔 Connecting to notifications socket...', origin)
 
-        this.socket = io(`${socketUrl}/notifications`, {
+        this.socket = io(`${origin}/notifications`, {
             auth: { token },
             transports: ['websocket', 'polling'],
             reconnection: true,

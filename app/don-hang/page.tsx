@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import AppShell from '@/app/components/AppShell'
+import Header from '@/app/components/Header'
 import { AuthService } from '@/lib/api/auth.service'
 import { orderService, type Order, type OrderStats } from '@/lib/api/order.service'
 
@@ -190,23 +192,12 @@ export default function DonHangPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="bg-white shadow-sm flex-shrink-0">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-full"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 className="text-2xl font-bold">Quản lý đơn hàng</h1>
-            </div>
-          </div>
+    <AppShell>
+    <div className="flex h-screen flex-col overflow-hidden bg-surface-lowest">
+      <Header />
+      <div className="flex-shrink-0 border-b border-outline-variant/60 bg-surface shadow-app-bar">
+        <div className="app-container py-app-sm">
+          <h1 className="mb-app-sm text-xl font-bold text-foreground">Quản lý đơn hàng</h1>
 
           {/* Stats */}
           {stats && (
@@ -440,37 +431,7 @@ export default function DonHangPage() {
         )}
         </div>
       </div>
-
-      {/* Bottom Navigation - Fixed */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
-        <div className="max-w-md mx-auto flex justify-around">
-          <button onClick={() => router.push('/home')} className="flex flex-col items-center p-2 text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="text-xs mt-1">Trang chủ</span>
-          </button>
-          <button onClick={() => router.push('/tin-nhan')} className="flex flex-col items-center p-2 text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="text-xs mt-1">Tin nhắn</span>
-          </button>
-          <button className="flex flex-col items-center p-2 text-orange-600">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-            </svg>
-            <span className="text-xs mt-1">Đơn hàng</span>
-          </button>
-          <button onClick={() => router.push('/profile')} className="flex flex-col items-center p-2 text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span className="text-xs mt-1">Cá nhân</span>
-          </button>
-        </div>
-      </div>
     </div>
+    </AppShell>
   )
 }

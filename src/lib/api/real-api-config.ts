@@ -1,6 +1,8 @@
 // src/lib/api/real-api-config.ts
 // Configuration để ưu tiên REAL API từ backend
 
+import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
+
 /**
  * API Mode Configuration
  * 
@@ -18,7 +20,7 @@
 
 export const REAL_API_CONFIG = {
   // Backend URL (từ .env.local)
-  BASE_URL: process.env.NEXT_PUBLIC_API_DOMAIN || 'https://postmaxillary-variably-justa.ngrok-free.dev/api/v1',
+  BASE_URL: process.env.NEXT_PUBLIC_API_DOMAIN || DEFAULT_PUBLIC_API_V1,
   
   // Timeout (milliseconds)
   TIMEOUT: 5000,

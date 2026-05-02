@@ -61,6 +61,8 @@ export interface CreateQuoteRequest {
   price: number
   description: string
   estimatedDuration?: number  // Thời gian dự kiến tính bằng phút
+  terms?: string
+  imageUrls?: string[]
 }
 
 export interface ReviseQuoteRequest {
@@ -111,6 +113,13 @@ class QuoteService {
       if (!isNaN(duration) && duration > 0) {
         requestBody.estimatedDuration = duration
       }
+    }
+
+    if (data.terms?.trim()) {
+      requestBody.terms = data.terms.trim()
+    }
+    if (data.imageUrls?.length) {
+      requestBody.imageUrls = data.imageUrls.map((u) => u.trim()).filter(Boolean)
     }
     
     console.log('Formatted request body:', requestBody)

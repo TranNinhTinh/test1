@@ -5,6 +5,7 @@ import { chatService, type Message, MessageType } from '@/lib/api/chat.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import { quoteService } from '@/lib/api/quote.service'
 import { orderService } from '@/lib/api/order.service'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 interface User {
     id: string
@@ -50,25 +51,6 @@ export default function ChatQuoteFlow({
     const hasConversationId = Boolean(conversationId)
     const hasCurrentUserId = Boolean(currentUser?.id)
 
-    const normalizeMediaUrl = (rawUrl?: string | null) => {
-        if (!rawUrl) return ''
-        const cleanUrl = rawUrl.trim()
-        if (!cleanUrl) return ''
-
-        if (/^https?:\/\//i.test(cleanUrl) || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
-            return cleanUrl
-        }
-
-        const apiDomain = (process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/v1\/?$/, '')
-        if (!apiDomain) return cleanUrl
-
-        if (cleanUrl.startsWith('/')) {
-            return `${apiDomain}${cleanUrl}`
-        }
-
-        return `${apiDomain}/${cleanUrl}`
-    }
-
     const parseFileUrls = (fileUrls: unknown): string[] => {
         if (Array.isArray(fileUrls)) {
             return fileUrls.map((item) => String(item)).filter(Boolean)
@@ -112,7 +94,7 @@ export default function ChatQuoteFlow({
 
     const getMessageMediaUrls = (msg: Message) => {
         return parseFileUrls((msg as any).fileUrls)
-            .map((url) => normalizeMediaUrl(url))
+            .map((url) => resolveMediaUrl(url))
             .filter(Boolean)
     }
 

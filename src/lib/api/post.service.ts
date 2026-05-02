@@ -169,8 +169,9 @@ export class PostService {
 
       if (postData.location) formData.append('location', postData.location)
       if (postData.desiredTime) formData.append('desiredTime', postData.desiredTime)
-      if (postData.budget !== undefined && postData.budget !== null) {
-        formData.append('budget', String(postData.budget))
+      const b = postData.budget
+      if (typeof b === 'number' && Number.isFinite(b) && b > 0) {
+        formData.append('budget', String(b))
       }
 
       files.forEach(file => formData.append('files', file))

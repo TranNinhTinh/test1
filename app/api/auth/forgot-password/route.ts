@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchBackend, isBackendFetchAbort } from '@/lib/server/fetch-backend'
+import { getPublicApiOrigin } from '@/lib/server/public-api-base'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN
-  ? process.env.NEXT_PUBLIC_API_DOMAIN.replace('/api/v1', '')
-  : 'http://localhost:3000'
+const API_BASE_URL = getPublicApiOrigin()
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
+    const response = await fetchBackend(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: response.status })
   } catch (error) {
     console.error('Forgot password proxy error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
+    const message = isBackendFetchAbort(error)
+      ? 'Hết thời gian chờ backend. Kiểm tra NEXT_PUBLIC_API_DOMAIN và máy chủ API.'
+      : 'Internal server error'
+    return NextResponse.json({ success: false, message }, { status: isBackendFetchAbort(error) ? 504 : 500 })
   }
 }

@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { PostService } from '@/lib/api/post.service'
 import { ProfileService } from '@/lib/api/profile.service'
@@ -60,25 +62,6 @@ export default function HomePage() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
-
-  const normalizeImageUrl = (rawUrl?: string | null) => {
-    if (!rawUrl) return ''
-    const cleanUrl = rawUrl.trim()
-    if (!cleanUrl) return ''
-
-    if (/^https?:\/\//i.test(cleanUrl) || cleanUrl.startsWith('data:')) {
-      return cleanUrl
-    }
-
-    const apiDomain = (process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/v1\/?$/, '')
-    if (!apiDomain) return cleanUrl
-
-    if (cleanUrl.startsWith('/')) {
-      return `${apiDomain}${cleanUrl}`
-    }
-
-    return `${apiDomain}/${cleanUrl}`
-  }
 
   const mapUserWithAvatar = (rawUser: any) => {
     if (!rawUser) return null
@@ -761,10 +744,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden aurora-bg page-enter bg-gradient-to-br from-[#f2fbf9] via-[#f7fffd] to-[#e8f3ff]">
-      <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl animate-pulse" />
-      <div className="pointer-events-none absolute -right-20 top-1/3 h-80 w-80 rounded-full bg-cyan-200/40 blur-3xl animate-pulse" style={{ animationDelay: '0.7s' }} />
-      <div className="pointer-events-none absolute bottom-0 left-1/4 h-64 w-64 rounded-full bg-sky-200/30 blur-3xl animate-pulse" style={{ animationDelay: '1.1s' }} />
+    <AppShell>
+    <div className="relative flex h-screen flex-col overflow-hidden bg-surface-lowest page-enter">
       {/* Header */}
       <Header currentUser={currentUser} />
 
@@ -1240,10 +1221,11 @@ export default function HomePage() {
                                   }
                                 }
 
-                                if (avatarUrl) {
+                                const resolvedAvatar = avatarUrl ? normalizeImageUrl(avatarUrl) : ''
+                                if (resolvedAvatar) {
                                   return (
                                     <img
-                                      src={avatarUrl}
+                                      src={resolvedAvatar}
                                       alt="Avatar"
                                       className="w-10 h-10 rounded-full object-cover"
                                       onError={(e) => {
@@ -1399,7 +1381,7 @@ export default function HomePage() {
                           {post.imageUrls.length === 1 ? (
                             <div className="relative w-full aspect-video">
                               <Image
-                                src={post.imageUrls[0]}
+                                src={normalizeImageUrl(post.imageUrls[0])}
                                 alt={post.title}
                                 fill
                                 className="object-cover"
@@ -1411,7 +1393,7 @@ export default function HomePage() {
                               {post.imageUrls.map((url: string, index: number) => (
                                 <div key={index} className="relative aspect-video">
                                   <Image
-                                    src={url}
+                                    src={normalizeImageUrl(url)}
                                     alt={`${post.title} - Image ${index + 1}`}
                                     fill
                                     className="object-cover"
@@ -1424,7 +1406,7 @@ export default function HomePage() {
                             <div className="grid grid-cols-2 gap-1">
                               <div className="relative aspect-video row-span-2">
                                 <Image
-                                  src={post.imageUrls[0]}
+                                  src={normalizeImageUrl(post.imageUrls[0])}
                                   alt={`${post.title} - Image 1`}
                                   fill
                                   className="object-cover"
@@ -1433,7 +1415,7 @@ export default function HomePage() {
                               </div>
                               <div className="relative aspect-video">
                                 <Image
-                                  src={post.imageUrls[1]}
+                                  src={normalizeImageUrl(post.imageUrls[1])}
                                   alt={`${post.title} - Image 2`}
                                   fill
                                   className="object-cover"
@@ -1442,7 +1424,7 @@ export default function HomePage() {
                               </div>
                               <div className="relative aspect-video">
                                 <Image
-                                  src={post.imageUrls[2]}
+                                  src={normalizeImageUrl(post.imageUrls[2])}
                                   alt={`${post.title} - Image 3`}
                                   fill
                                   className="object-cover"
@@ -1455,7 +1437,7 @@ export default function HomePage() {
                               {post.imageUrls.slice(0, 4).map((url: string, index: number) => (
                                 <div key={index} className="relative aspect-video">
                                   <Image
-                                    src={url}
+                                    src={normalizeImageUrl(url)}
                                     alt={`${post.title} - Image ${index + 1}`}
                                     fill
                                     className="object-cover"
@@ -1538,6 +1520,7 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }
 

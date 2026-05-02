@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPublicApiOrigin } from '@/lib/server/public-api-base'
+import { normalizeBudgetInput } from '@/lib/server/normalize-budget'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_DOMAIN ? process.env.NEXT_PUBLIC_API_DOMAIN.replace('/api/v1', '') : 'http://localhost:3000'
+const API_BASE_URL = getPublicApiOrigin()
 
 // Create new post
 export async function POST(request: NextRequest) {
@@ -21,8 +23,26 @@ export async function POST(request: NextRequest) {
     let response: Response
 
     if (contentType.includes('multipart/form-data')) {
-      const formData = await request.formData()
-      console.log('🔵 Proxy Create Post Request: multipart/form-data')
+      const incoming = await request.formData()
+      const outgoing = new FormData()
+      let budgetAppended = false
+
+      for (const [key, value] of incoming.entries()) {
+        if (key === 'budget') {
+          if (budgetAppended) continue
+          if (typeof value === 'string') {
+            const b = normalizeBudgetInput(value)
+            if (b !== undefined) {
+              outgoing.append('budget', String(b))
+              budgetAppended = true
+            }
+          }
+          continue
+        }
+        outgoing.append(key, value)
+      }
+
+      console.log('🔵 Proxy Create Post Request: multipart/form-data (budget normalized)')
 
       response = await fetch(`${API_BASE_URL}/api/v1/posts`, {
         method: 'POST',
@@ -30,10 +50,15 @@ export async function POST(request: NextRequest) {
           'ngrok-skip-browser-warning': 'true',
           'Authorization': authHeader,
         },
-        body: formData,
+        body: outgoing,
       })
     } else {
-      const body = await request.json()
+      const body = (await request.json()) as Record<string, unknown>
+      if ('budget' in body) {
+        const b = normalizeBudgetInput(body.budget)
+        if (b === undefined) delete body.budget
+        else body.budget = b
+      }
       console.log('🔵 Proxy Create Post Request:', JSON.stringify(body, null, 2))
 
       response = await fetch(`${API_BASE_URL}/api/v1/posts`, {

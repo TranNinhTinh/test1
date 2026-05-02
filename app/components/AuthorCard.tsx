@@ -1,4 +1,5 @@
 import { useRouter } from 'next/navigation'
+import { resolveMediaUrl } from '@/lib/media-url'
 
 interface AuthorCardProps {
     customerId: string
@@ -34,9 +35,9 @@ export default function AuthorCard({
         >
             {/* Avatar */}
             <div className="flex-shrink-0">
-                {avatarUrl ? (
+                {resolveMediaUrl(avatarUrl) ? (
                     <img
-                        src={avatarUrl}
+                        src={resolveMediaUrl(avatarUrl)}
                         alt={authorName}
                         className="w-12 h-12 rounded-full object-cover border-2 border-blue-500 group-hover:border-blue-700 transition"
                     />

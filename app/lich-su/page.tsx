@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/app/components/Header'
+import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -174,7 +175,8 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <AppShell>
+    <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
       <Header />
 
@@ -452,5 +454,6 @@ export default function HistoryPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }
