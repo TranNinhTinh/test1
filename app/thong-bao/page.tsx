@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { notificationService, type Notification } from '@/lib/api/notification.service'
@@ -10,6 +9,13 @@ import { notificationSocketService } from '@/lib/api/notification-socket.service
 import { quoteService, type Quote } from '@/lib/api/quote.service'
 import { ProfileService } from '@/lib/api/profile.service'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+  faClipboardList, faCircleCheck, faCircleXmark, faMoneyBillWave, faComments,
+  faPen, faBan, faBox, faClock, faGift, faHammer, faComment, faFileLines,
+  faStar, faCreditCard, faRotateLeft, faKey, faBell, faTriangleExclamation,
+  faBriefcase, faEnvelopeOpen, faEnvelope, faPhone, faLightbulb, faArrowRight,
+} from '@fortawesome/free-solid-svg-icons'
 
 export default function ThongBaoPage() {
   const router = useRouter()
@@ -52,16 +58,39 @@ export default function ThongBaoPage() {
     )
   }
 
+  const isDirectRequestNotification = (notification: Partial<Notification>) => {
+    const type = String(notification.type || '').toLowerCase()
+    return type.includes('direct_request')
+  }
+
   const isQuoteNotification = (notification: Partial<Notification>) => {
+    // Direct request notifications are handled separately even if they mention "báo giá"
+    if (isDirectRequestNotification(notification)) return false
     const type = String(notification.type || '').toLowerCase()
     const title = String((notification as any).title || '').toLowerCase()
     const message = String((notification as any).message || '').toLowerCase()
-
     return (
       type.includes('quote') ||
       type.includes('bao_gia') ||
       title.includes('báo giá') ||
       message.includes('báo giá')
+    )
+  }
+
+  const isReviewNotification = (notification: Partial<Notification>) => {
+    const type = String(notification.type || '').toLowerCase()
+    const title = String((notification as any).title || '').toLowerCase()
+    const message = String((notification as any).message || '').toLowerCase()
+    const actionUrl = String((notification as any).actionUrl || '').toLowerCase()
+
+    return (
+      type.includes('review') ||
+      title.includes('review') ||
+      title.includes('đánh giá') ||
+      message.includes('review') ||
+      message.includes('đánh giá') ||
+      actionUrl.includes('/reviews/') ||
+      actionUrl.includes('/danh-gia-ve-toi')
     )
   }
 
@@ -262,6 +291,51 @@ export default function ThongBaoPage() {
     }
   }
 
+  const extractPostIdFromActionUrl = (actionUrl: string) => {
+    const match = actionUrl.match(/^\/posts\/([^/]+)(?:\/quotes)?(?:\/)?(?:\?.*)?$/)
+    return match?.[1] || null
+  }
+
+  const extractReviewIdFromNotification = (notification: Notification) => {
+    const metadata = (notification as any).metadata || (notification as any).data || {}
+    const reviewId = String(
+      metadata.reviewId ||
+      metadata.review_id ||
+      metadata.id ||
+      metadata.entityId ||
+      metadata.review?.id ||
+      metadata.reviewId ||
+      '',
+    ).trim()
+    if (reviewId) {
+      return reviewId
+    }
+
+    const actionUrl = String((notification as any).actionUrl || '').trim()
+    if (!actionUrl) {
+      return null
+    }
+
+    const queryString = actionUrl.includes('?') ? actionUrl.split('?')[1] : ''
+    const queryParams = new URLSearchParams(queryString)
+    const reviewIdFromQuery = queryParams.get('reviewId') || queryParams.get('id')
+    if (reviewIdFromQuery?.trim()) {
+      return reviewIdFromQuery.trim()
+    }
+
+    const match = actionUrl.match(/\/reviews\/([^/?#]+)/i)
+    if (match?.[1]) {
+      return match[1]
+    }
+
+    const hashMatch = actionUrl.match(/#review-([^/?#]+)/i)
+    if (hashMatch?.[1]) {
+      return hashMatch[1]
+    }
+
+    return null
+  }
+
   // Chuyển đến trang chi tiết bài đăng khi click vào thông báo chào giá
   const handleViewQuoteNotification = async (notification: Notification) => {
     console.log('=== CLICK NOTIFICATION ===')
@@ -278,8 +352,9 @@ export default function ThongBaoPage() {
 
     // Backend gửi data trong field "metadata", KHÔNG phải "data"
     const metadata = (notification as any).metadata || (notification as any).data
+    const actionUrl = String((notification as any).actionUrl || '').trim()
 
-    let postId = null
+    let postId: string | null = null
 
     if (metadata) {
       console.log('🔍 Found metadata/data:', metadata)
@@ -292,13 +367,17 @@ export default function ThongBaoPage() {
       console.warn('⚠️ notification.metadata và notification.data đều null/undefined')
     }
 
+    if (!postId && actionUrl) {
+      postId = extractPostIdFromActionUrl(actionUrl)
+      console.log('🔍 Extracted postId from actionUrl:', postId)
+    }
+
     if (!postId) {
       console.error('❌ KHÔNG TÌM THẤY postId trong notification')
       alert(
         '⚠️ Thông báo thiếu thông tin bài đăng.\n\n' +
-        'Vui lòng vào "Bài đăng của tôi" để xem tất cả báo giá.'
+        'Không thể mở đúng bài đăng từ thông báo này.'
       )
-      router.push('/bai-dang-cua-toi')
       return
     }
 
@@ -309,21 +388,47 @@ export default function ThongBaoPage() {
   }
 
   const handleNotificationClick = async (notification: Notification) => {
-    const shouldNavigateToQuote = isQuoteNotification(notification)
-    const actionUrl = String((notification as any).actionUrl || '').trim()
-    const needsMarkAsRead = !notification.isRead
-
-    if (needsMarkAsRead && !shouldNavigateToQuote) {
+    if (!notification.isRead) {
       await handleMarkAsRead(notification.id)
     }
 
-    if (shouldNavigateToQuote) {
+    // Direct request notifications → /yeu-cau-rieng/[id]
+    if (isDirectRequestNotification(notification)) {
+      const metadata = (notification as any).metadata || {}
+      const customRequestId = metadata.customRequestId
+      if (customRequestId) {
+        router.push(`/yeu-cau-rieng/${customRequestId}`)
+        return
+      }
+      // Fallback: remap legacy /custom-requests/ URL if present
+      const actionUrl = String((notification as any).actionUrl || '').trim()
+      if (actionUrl) {
+        router.push(actionUrl.replace(/^\/custom-requests\//, '/yeu-cau-rieng/'))
+        return
+      }
+      router.push('/yeu-cau-rieng')
+      return
+    }
+
+    if (isReviewNotification(notification)) {
+      const reviewId = extractReviewIdFromNotification(notification)
+      if (reviewId) {
+        router.push(`/danh-gia-ve-toi?highlightReviewId=${encodeURIComponent(reviewId)}`)
+      } else {
+        router.push('/danh-gia-ve-toi')
+      }
+      return
+    }
+
+    if (isQuoteNotification(notification)) {
       await handleViewQuoteNotification(notification)
       return
     }
 
+    const actionUrl = String((notification as any).actionUrl || '').trim()
+    // Safety: remap any /custom-requests/ URLs for old stored notifications
     if (actionUrl) {
-      router.push(actionUrl)
+      router.push(actionUrl.replace(/^\/custom-requests\//, '/yeu-cau-rieng/'))
     }
   }
 
@@ -404,22 +509,35 @@ export default function ThongBaoPage() {
   })
 
   const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'quote':
-        return '💰'
-      case 'order':
-        return '📦'
-      case 'message':
-        return '💬'
-      case 'post':
-        return '📝'
-      case 'review':
-        return '⭐'
-      case 'system':
-        return '🔔'
-      default:
-        return '📢'
-    }
+    const t = (type || '').toLowerCase()
+    if (t.includes('direct_request_received')) return <FontAwesomeIcon icon={faClipboardList} />
+    if (t.includes('direct_request_accepted')) return <FontAwesomeIcon icon={faCircleCheck} />
+    if (t.includes('direct_request_rejected')) return <FontAwesomeIcon icon={faCircleXmark} />
+    if (t.includes('direct_request')) return <FontAwesomeIcon icon={faClipboardList} />
+    if (t.includes('new_quote') || t.includes('quote_received')) return <FontAwesomeIcon icon={faMoneyBillWave} />
+    if (t.includes('quote_accepted_for_chat')) return <FontAwesomeIcon icon={faComments} />
+    if (t.includes('quote_accepted')) return <FontAwesomeIcon icon={faCircleCheck} />
+    if (t.includes('quote_rejected')) return <FontAwesomeIcon icon={faCircleXmark} />
+    if (t.includes('quote_revised')) return <FontAwesomeIcon icon={faPen} />
+    if (t.includes('quote_cancelled')) return <FontAwesomeIcon icon={faBan} />
+    if (t.includes('quote')) return <FontAwesomeIcon icon={faMoneyBillWave} />
+    if (t.includes('order_requested')) return <FontAwesomeIcon icon={faBox} />
+    if (t.includes('order_awaiting')) return <FontAwesomeIcon icon={faClock} />
+    if (t.includes('order_created')) return <FontAwesomeIcon icon={faBox} />
+    if (t.includes('order_completed')) return <FontAwesomeIcon icon={faGift} />
+    if (t.includes('order_cancelled')) return <FontAwesomeIcon icon={faBan} />
+    if (t.includes('order_in_progress')) return <FontAwesomeIcon icon={faHammer} />
+    if (t.includes('order')) return <FontAwesomeIcon icon={faBox} />
+    if (t.includes('message') || t.includes('chat')) return <FontAwesomeIcon icon={faComment} />
+    if (t.includes('post')) return <FontAwesomeIcon icon={faFileLines} />
+    if (t.includes('review')) return <FontAwesomeIcon icon={faStar} />
+    if (t.includes('payment_received')) return <FontAwesomeIcon icon={faCreditCard} />
+    if (t.includes('payment_failed')) return <FontAwesomeIcon icon={faTriangleExclamation} />
+    if (t.includes('refund')) return <FontAwesomeIcon icon={faRotateLeft} />
+    if (t.includes('account_verified')) return <FontAwesomeIcon icon={faCircleCheck} />
+    if (t.includes('account_suspended') || t.includes('account_warning')) return <FontAwesomeIcon icon={faTriangleExclamation} />
+    if (t.includes('subscription')) return <FontAwesomeIcon icon={faKey} />
+    return <FontAwesomeIcon icon={faBell} />
   }
 
   const formatTime = (timestamp: string | Date) => {
@@ -452,7 +570,6 @@ export default function ThongBaoPage() {
     <AppShell>
     <div className="flex min-h-screen flex-col bg-surface-lowest">
       {/* Header */}
-      <Header />
 
       {/* Notifications Page Content */}
       <div className="flex-1">
@@ -520,7 +637,7 @@ export default function ThongBaoPage() {
             )}
             {(filteredNotifications?.length || 0) === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                <div className="text-6xl mb-4">🔔</div>
+                <div className="mb-4 text-gray-300 text-6xl"><FontAwesomeIcon icon={faBell} /></div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   {filter === 'unread' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo'}
                 </h3>
@@ -533,27 +650,24 @@ export default function ThongBaoPage() {
             ) : (
               <div className="space-y-2">
                 {filteredNotifications.map((notification) => {
-                  const quoteNotification = isQuoteNotification(notification)
-
-                  // Debug: Log notification data
-                  console.log('🔍 Notification type:', notification.type)
-                  console.log('🔍 Is quote notification:', quoteNotification)
-                  console.log('🔍 Notification data:', (notification as any).data)
+                  const isDirectReq = isDirectRequestNotification(notification)
+                  const isQuoteNotif = isQuoteNotification(notification)
+                  const isReviewNotif = isReviewNotification(notification)
 
                   return (
                     <div
                       key={notification.id}
-                      onClick={() => {
-                        console.log('👆 Clicked notification:', notification)
-                        void handleNotificationClick(notification)
-                      }}
-                      className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow ${!notification.isRead ? 'border-l-4 border-orange-500' : ''
-                        } cursor-pointer`}
+                      onClick={() => void handleNotificationClick(notification)}
+                      className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+                        !notification.isRead ? 'border-l-4 border-yellow-400 bg-yellow-50' : ''
+                      }`}
                     >
                       <div className="p-4">
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-2xl">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
+                              isDirectReq ? 'bg-blue-100' : 'bg-orange-100'
+                            }`}>
                               {getNotificationIcon(notification.type)}
                             </div>
                           </div>
@@ -571,9 +685,20 @@ export default function ThongBaoPage() {
                                   {formatTime(notification.createdAt)}
                                 </p>
 
-                                {/* Hiển thị hint cho notification báo giá */}
-                                {quoteNotification && (
-                                  <p className="mt-2 text-xs text-blue-600 font-medium">
+                                {/* Action hint */}
+                                {isDirectReq && (
+                                  <p className="mt-1.5 text-xs text-blue-600 font-medium">
+                                    Bấm để xem yêu cầu <FontAwesomeIcon icon={faArrowRight} />
+                                  </p>
+                                )}
+                                {isQuoteNotif && (
+                                  <p className="mt-1.5 text-xs text-blue-600 font-medium">
+                                    Bấm để xem báo giá <FontAwesomeIcon icon={faArrowRight} />
+                                  </p>
+                                )}
+                                {isReviewNotif && (
+                                  <p className="mt-1.5 text-xs text-yellow-800 font-semibold">
+                                    Bấm để xem đánh giá về tôi <FontAwesomeIcon icon={faArrowRight} />
                                   </p>
                                 )}
                               </div>
@@ -630,7 +755,7 @@ export default function ThongBaoPage() {
             {/* Header - Fixed */}
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
               <div>
-                <h2 className="text-xl font-bold">💼 Thông tin báo giá</h2>
+                <h2 className="text-xl font-bold"><FontAwesomeIcon icon={faBriefcase} className="mr-2" />Thông tin báo giá</h2>
                 <p className="text-sm text-orange-100 mt-1">Xem và quyết định chấp nhận hay từ chối</p>
               </div>
               <button
@@ -656,14 +781,14 @@ export default function ThongBaoPage() {
                 </div>
               ) : quotes.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-6xl mb-4">📭</div>
+                  <div className="mb-4 text-gray-300 text-6xl"><FontAwesomeIcon icon={faEnvelopeOpen} /></div>
                   <p className="text-gray-600 font-medium">Không tìm thấy báo giá</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                     <p className="text-sm text-blue-800">
-                      <span className="font-bold">💡 Lưu ý:</span> Sau khi chấp nhận báo giá, bạn có thể trò chuyện với thợ trong mục &quot;Tin nhắn&quot;
+                      <span className="font-bold"><FontAwesomeIcon icon={faLightbulb} className="mr-1" />Lưu ý:</span> Sau khi chấp nhận báo giá, bạn có thể trò chuyện với thợ trong mục &quot;Tin nhắn&quot;
                     </p>
                   </div>
                   {quotes.map((quote) => {
@@ -715,11 +840,11 @@ export default function ThongBaoPage() {
                                 normalizedStatus === 'ACCEPTED' || normalizedStatus === 'IN_CHAT' ? 'bg-green-100 text-green-700' :
                                   'bg-gray-100 text-gray-700'
                                 }`}>
-                                {normalizedStatus === 'PENDING' && '⏳ Đang chờ xác nhận'}
-                                {normalizedStatus === 'ACCEPTED' && '✅ Đã chấp nhận'}
-                                {normalizedStatus === 'IN_CHAT' && '💬 Đang trò chuyện'}
-                                {normalizedStatus === 'REJECTED' && '❌ Đã từ chối'}
-                                {!quote.status && '⏳ Chưa xác nhận'}
+                                {normalizedStatus === 'PENDING' && <><FontAwesomeIcon icon={faClock} className="mr-1" />Đang chờ xác nhận</>}
+                                {normalizedStatus === 'ACCEPTED' && <><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />Đã chấp nhận</>}
+                                {normalizedStatus === 'IN_CHAT' && <><FontAwesomeIcon icon={faComments} className="mr-1" />Đang trò chuyện</>}
+                                {normalizedStatus === 'REJECTED' && <><FontAwesomeIcon icon={faCircleXmark} className="mr-1" />Đã từ chối</>}
+                                {!quote.status && <><FontAwesomeIcon icon={faClock} className="mr-1" />Chưa xác nhận</>}
                               </span>
                             </div>
 
@@ -728,12 +853,12 @@ export default function ThongBaoPage() {
                               <div className="mt-2 pt-2 border-t border-orange-100 space-y-1">
                                 {providerEmail && (
                                   <p className="text-xs text-gray-600">
-                                    📧 {providerEmail}
+                                    <FontAwesomeIcon icon={faEnvelope} className="mr-1" />{providerEmail}
                                   </p>
                                 )}
                                 {providerPhone && (
                                   <p className="text-xs text-gray-600">
-                                    📞 {providerPhone}
+                                    <FontAwesomeIcon icon={faPhone} className="mr-1" />{providerPhone}
                                   </p>
                                 )}
                               </div>
@@ -773,7 +898,7 @@ export default function ThongBaoPage() {
                         {(normalizedStatus === 'PENDING' || !quote.status) && (
                           <div className="mt-6 pt-4 border-t-2 border-orange-200 bg-orange-50/50 rounded-b-lg p-4 -mx-4 -mb-4">
                             <p className="text-sm text-gray-700 mb-3 font-bold text-center">
-                              👇 Bạn muốn làm gì với báo giá này? 👇
+                              Bạn muốn làm gì với báo giá này?
                             </p>
                             <div className="flex gap-3">
                               <button
@@ -785,7 +910,7 @@ export default function ThongBaoPage() {
                                 className="flex-1 bg-green-500 text-white px-6 py-4 rounded-lg font-bold text-lg hover:bg-green-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                               >
                                 <div className="flex items-center justify-center gap-2">
-                                  <span className="text-2xl">✅</span>
+                                  <FontAwesomeIcon icon={faCircleCheck} className="text-2xl" />
                                   <span>Chấp nhận</span>
                                 </div>
                               </button>
@@ -798,7 +923,7 @@ export default function ThongBaoPage() {
                                 className="flex-1 bg-red-500 text-white px-6 py-4 rounded-lg font-bold text-lg hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                               >
                                 <div className="flex items-center justify-center gap-2">
-                                  <span className="text-2xl">❌</span>
+                                  <FontAwesomeIcon icon={faCircleXmark} className="text-2xl" />
                                   <span>Từ chối</span>
                                 </div>
                               </button>
@@ -811,13 +936,13 @@ export default function ThongBaoPage() {
 
                         {(normalizedStatus === 'ACCEPTED' || normalizedStatus === 'IN_CHAT') && (
                           <div className="mt-4 bg-green-100 text-green-800 px-4 py-3 rounded-lg text-center font-medium">
-                            ✅ Đã chấp nhận báo giá này. Bạn có thể nhắn tin với thợ trong mục &quot;Tin nhắn&quot;
+                            <FontAwesomeIcon icon={faCircleCheck} className="mr-1" />Đã chấp nhận báo giá này. Bạn có thể nhắn tin với thợ trong mục &quot;Tin nhắn&quot;
                           </div>
                         )}
 
                         {normalizedStatus === 'REJECTED' && (
                           <div className="mt-4 bg-red-100 text-red-800 px-4 py-3 rounded-lg text-center font-medium">
-                            ❌ Đã từ chối báo giá này
+                            <FontAwesomeIcon icon={faCircleXmark} className="mr-1" />Đã từ chối báo giá này
                           </div>
                         )}
                       </div>

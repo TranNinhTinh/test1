@@ -4,6 +4,8 @@ import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 const API_BASE_URL = getPublicApiBaseV1()
 
 // POST /api/chat/conversations/direct - Tạo conversation riêng với thợ
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')

@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * POST /api/orders/confirm-from-quote/{quoteId}
  * [Provider] Xác nhận làm → Tạo order
  */
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { quoteId: string } }
@@ -24,13 +26,14 @@ export async function POST(
     }
 
     const { quoteId } = params
-    console.log('📦 [API Route] QuoteId:', quoteId)
-    
-    const body = await request.json()
-    console.log('📦 [API Route] Request body:', body)
+    let body: Record<string, unknown> = {}
+    try {
+      const text = await request.text()
+      if (text.trim()) body = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      body = {}
+    }
 
-    console.log('📦 [API Route] Calling backend:', `${API_BASE_URL}/orders/confirm-from-quote/${quoteId}`)
-    
     const response = await fetch(`${API_BASE_URL}/orders/confirm-from-quote/${quoteId}`, {
       method: 'POST',
       headers: {

@@ -21,8 +21,11 @@ export interface ProfileResponse {
     address?: string
     birthday?: Date
     gender?: string
+    mainOccupation?: string
     isVerified?: boolean
     isActive?: boolean | null
+    certificationCount?: number
+    hasCertification?: boolean
     displayNameChangeInfo: DisplayNameChangeInfo
     createdAt?: Date | null
     updatedAt: Date
@@ -34,7 +37,12 @@ export interface PublicProfileResponse {
     displayName?: string
     avatarUrl?: string
     bio?: string
+    mainOccupation?: string
+    address?: string
     isVerified?: boolean
+    hasCertification?: boolean
+    averageRating?: number
+    reviewCount?: number
     memberSince?: Date
 }
 
@@ -66,6 +74,7 @@ export interface UpdateProfileDto {
     address?: string
     birthday?: Date
     gender?: string
+    mainOccupation?: string
 }
 
 export interface UpdateContactDto {

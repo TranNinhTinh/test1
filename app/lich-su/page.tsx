@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import Image from 'next/image'
@@ -178,7 +177,6 @@ export default function HistoryPage() {
     <AppShell>
     <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
-      <Header />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}

@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { PostService } from '@/lib/api/post.service'
 import { quoteService } from '@/lib/api/quote.service'
 import type { PostResponseDto } from '@/lib/api'
-import Image from 'next/image'
 import SkeletonPostDetail from '@/app/components/SkeletonPostDetail'
-import ThoTotLogo from '@/app/components/ThoTotLogo'
 import QuoteSection from '@/app/components/QuoteSection'
 import AuthorCard from '@/app/components/AuthorCard'
 import { resolveMediaUrl } from '@/lib/media-url'
@@ -23,11 +20,10 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState<PostResponseDto | null>(null)
   const [loading, setLoading] = useState(true)
-  const [newComment, setNewComment] = useState('')
   const [error, setError] = useState('')
   const [showMenu, setShowMenu] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [authorAvatar, setAuthorAvatar] = useState<string | null>(null)
+
 
   const [quoteSuccessMessage, setQuoteSuccessMessage] = useState('')
   const [hasMyQuote, setHasMyQuote] = useState(false)
@@ -90,21 +86,6 @@ export default function PostDetailPage() {
         console.log('🆔 Customer ID direct:', userId)
       }
 
-      if (userId) {
-        const avatarKey = `user_avatar_${userId}`
-        console.log('🔑 Looking for avatar key:', avatarKey)
-        const savedAvatar = localStorage.getItem(avatarKey)
-
-        if (savedAvatar) {
-          setAuthorAvatar(savedAvatar)
-          console.log('✅ Avatar loaded successfully')
-        } else {
-          console.warn('⚠️ No avatar in localStorage for userId:', userId)
-          console.log('💡 User needs to upload avatar in profile page first')
-        }
-      } else {
-        console.error('❌ Could not find userId in post data')
-      }
     } catch (err: any) {
       console.error('Error loading post:', err)
       setError(err.message || 'Không thể tải bài đăng')
@@ -115,32 +96,27 @@ export default function PostDetailPage() {
 
   useEffect(() => {
     if (!postId || !currentUser || !post) return
-    const userRole = currentUser?.accountType || currentUser?.role
-    const isWorker = userRole === 'WORKER' || userRole === 'provider'
+    const roleU = (currentUser?.accountType || currentUser?.role || '').toString().toUpperCase()
+    const isWorker = roleU === 'WORKER' || roleU === 'PROVIDER'
     const ownerId = post.customer?.id || post.customerId
-    const isOwner = ownerId && String(currentUser.id) === String(ownerId)
-    if (!isWorker || isOwner) return
+    const uid = String((currentUser as any).id ?? (currentUser as any).userId ?? '')
+    const viewerIsOwner = ownerId && uid === String(ownerId)
+    if (!isWorker || viewerIsOwner) return
 
     quoteService
       .getQuotesByPostId(postId)
       .then((list) => {
-        const uid = String(currentUser.id)
         const mine = list.some((q: { providerId?: string; status?: string }) => {
-          const st = String(q.status || '').toUpperCase()
-          return String(q.providerId) === uid && ['PENDING', 'IN_CHAT', 'ACCEPTED'].includes(st)
+          const st = String(q.status || '').toUpperCase().replace(/-/g, '_')
+          return (
+            String(q.providerId) === uid &&
+            ['PENDING', 'IN_CHAT', 'ACCEPTED', 'ACCEPTED_FOR_CHAT', 'REVISING'].includes(st)
+          )
         })
         setHasMyQuote(mine)
       })
       .catch(() => {})
   }, [postId, currentUser, post])
-
-  const handlePostComment = async () => {
-    if (!newComment.trim()) return
-
-    // TODO: Call API để post comment
-    alert('Chức năng bình luận sẽ được cập nhật sau!')
-    setNewComment('')
-  }
 
   const handleClosePost = async () => {
     if (!confirm('Bạn có chắc muốn đóng bài đăng này?')) return
@@ -173,8 +149,19 @@ export default function PostDetailPage() {
     }
   }
 
-  // Kiểm tra xem user có phải chủ bài đăng không
-  const isOwner = currentUser && post && currentUser.id === post.customerId
+  // Chủ bài: so khớp id (API có thể chỉ có customer.id, hoặc khác kiểu string)
+  const currentUserId = currentUser
+    ? String((currentUser as any).id ?? (currentUser as any).userId ?? (currentUser as any).sub ?? '')
+    : ''
+  const postOwnerId = post
+    ? String(post.customerId ?? post.customer?.id ?? '')
+    : ''
+  const isOwner = Boolean(currentUserId && postOwnerId && currentUserId === postOwnerId)
+
+  const userRoleUpper = (currentUser?.accountType || currentUser?.role || '')
+    .toString()
+    .toUpperCase()
+  const isWorkerRole = userRoleUpper === 'WORKER' || userRoleUpper === 'PROVIDER'
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -187,11 +174,6 @@ export default function PostDetailPage() {
     if (days > 0) return `${days} ngày trước`
     if (hours > 0) return `${hours} giờ trước`
     return 'Vừa xong'
-  }
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
   }
 
   if (loading) {
@@ -219,7 +201,6 @@ export default function PostDetailPage() {
     <AppShell>
     <div className="flex min-h-screen flex-col bg-surface-lowest">
       {/* Header */}
-      <Header />
 
       {quoteSuccessMessage && (
         <div className="fixed top-24 right-4 z-[70] max-w-sm w-[calc(100%-2rem)]">
@@ -318,40 +299,9 @@ export default function PostDetailPage() {
                   <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{post.description}</p>
                 </div>
 
-                {/* Images */}
-                {post.imageUrls && post.imageUrls.length > 0 && (
+                {/* Location */}
+                {post.location && (
                   <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Hình ảnh</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {post.imageUrls.map((url, index) => (
-                        <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
-                          <Image
-                            src={resolveMediaUrl(url)}
-                            alt={`Image ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Price & Location */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {post.budget && (
-                    <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
-                      <svg className="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Ngân sách</p>
-                        <p className="font-semibold text-gray-900">{formatCurrency(post.budget)}</p>
-                      </div>
-                    </div>
-                  )}
-                  {post.location && (
                     <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
                       <svg className="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -362,8 +312,8 @@ export default function PostDetailPage() {
                         <p className="font-semibold text-gray-900">{post.location}</p>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Desired Time */}
                 {post.desiredTime && (
@@ -390,15 +340,17 @@ export default function PostDetailPage() {
               {/* Quotes Section - Hiển thị danh sách chào giá thay cho Comments */}
               {/* Chỉ hiển thị cho khách hàng (không phải thợ) */}
               {(() => {
-                const userRole = currentUser?.accountType || currentUser?.role
-                const isWorker = userRole === 'WORKER' || userRole === 'provider'
+                if (isWorkerRole) return null
 
-                if (isWorker) return null
+                const customerIdForQuotes = String(
+                  post.customerId ?? post.customer?.id ?? (post.customer as { customerId?: string })?.customerId ?? ''
+                )
 
                 return (
                   <QuoteSection
                     postId={postId}
                     isPostOwner={isOwner}
+                    postCustomerId={customerIdForQuotes}
                   />
                 )
               })()}
@@ -442,12 +394,10 @@ export default function PostDetailPage() {
                   )}
 
                   {!isOwner && (() => {
-                    const userRole = currentUser?.accountType || currentUser?.role
-                    const isWorker = userRole === 'WORKER' || userRole === 'provider'
-                    const isCustomer = userRole === 'CUSTOMER' || userRole === 'customer'
+                    const isCustomerRole = userRoleUpper === 'CUSTOMER'
 
                     // Chỉ thợ mới có thể gửi báo giá, khách hàng không
-                    if (isCustomer) return null
+                    if (isCustomerRole) return null
 
                     if (hasMyQuote) {
                       return (

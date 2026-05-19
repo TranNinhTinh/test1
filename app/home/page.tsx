@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { PostService } from '@/lib/api/post.service'
@@ -16,6 +15,9 @@ import { socketService } from '@/lib/api/socket.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import { savedPostService } from '@/lib/api/saved-post.service'
 import SkeletonPost from '@/app/components/SkeletonPost'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import { faBolt, faWrench, faHammer, faSnowflake, faBroom } from '@fortawesome/free-solid-svg-icons'
 
 export default function HomePage() {
   const router = useRouter()
@@ -270,18 +272,18 @@ export default function HomePage() {
   }, [router])
 
   // Dữ liệu mẫu cho danh sách lĩnh vực
-  const categories = [
-    { id: 'danang', name: 'Thợ Điện Đà Nẵng', icon: '⚡' },
-    { id: 'uytin', name: 'Thợ Sen Uy Tín', icon: '🔧' },
-    { id: 'chuyennghiep', name: 'Thợ Mộc Chuyên Nghiệp', icon: '🔨' }
+  const categories: { id: string; name: string; icon: IconDefinition }[] = [
+    { id: 'danang', name: 'Thợ Điện Đà Nẵng', icon: faBolt },
+    { id: 'uytin', name: 'Thợ Sen Uy Tín', icon: faWrench },
+    { id: 'chuyennghiep', name: 'Thợ Mộc Chuyên Nghiệp', icon: faHammer }
   ]
 
-  const services = [
-    { id: 'dien', name: 'Sửa chữa điện', icon: '⚡', color: 'text-orange-500' },
-    { id: 'sen', name: 'Thợ sen', icon: '🔧', color: 'text-blue-500' },
-    { id: 'moc', name: 'Thợ mộc', icon: '🔨', color: 'text-yellow-600' },
-    { id: 'dieuhoa', name: 'Sửa điều hòa', icon: '❄️', color: 'text-cyan-500' },
-    { id: 'nha', name: 'Vệ sinh nhà cửa', icon: '🧹', color: 'text-green-500' }
+  const services: { id: string; name: string; icon: IconDefinition; color: string }[] = [
+    { id: 'dien', name: 'Sửa chữa điện', icon: faBolt, color: 'text-orange-500' },
+    { id: 'sen', name: 'Thợ sen', icon: faWrench, color: 'text-blue-500' },
+    { id: 'moc', name: 'Thợ mộc', icon: faHammer, color: 'text-yellow-600' },
+    { id: 'dieuhoa', name: 'Sửa điều hòa', icon: faSnowflake, color: 'text-cyan-500' },
+    { id: 'nha', name: 'Vệ sinh nhà cửa', icon: faBroom, color: 'text-green-500' }
   ]
 
   // Không còn dữ liệu giả - chỉ dùng dữ liệu thật từ API
@@ -746,9 +748,6 @@ export default function HomePage() {
   return (
     <AppShell>
     <div className="relative flex h-screen flex-col overflow-hidden bg-surface-lowest page-enter">
-      {/* Header */}
-      <Header currentUser={currentUser} />
-
       <div className="relative z-10 flex flex-1 overflow-hidden">
         {/* Create Post Modal */}
         {showCreatePost && (
@@ -757,7 +756,7 @@ export default function HomePage() {
             onClick={handleCancelCreatePost}
           >
             <div
-              className="relative glass-surface w-full max-w-lg rounded-2xl hover-lift"
+              className="relative w-full max-w-lg rounded-2xl hover-lift bg-gradient-to-r from-teal-600 to-cyan-600 shadow-xl shadow-cyan-700/20"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -765,7 +764,7 @@ export default function HomePage() {
                 onClick={handleCancelCreatePost}
                 disabled={postLoading}
                 aria-label="Đóng form đăng bài"
-                className="absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className="absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-full border border-white/50 bg-white/20 text-white hover:text-white hover:bg-white/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -773,8 +772,8 @@ export default function HomePage() {
               </button>
 
               {/* Modal Header */}
-              <div className="p-5 pr-14 border-b border-slate-200/80">
-                <h2 className="text-xl font-bold text-slate-800">Tạo bài viết</h2>
+              <div className="p-5 pr-14 border-b border-white/30">
+                <h2 className="text-xl font-bold text-white">Tạo bài viết</h2>
               </div>
 
               {/* Modal Body */}
@@ -783,8 +782,8 @@ export default function HomePage() {
                 <div className="flex items-center space-x-3 mb-4">
                   {renderAvatar('medium')}
                   <div>
-                    <div className="font-semibold text-gray-800">{currentUser?.fullName || currentUser?.displayName || 'Người dùng'}</div>
-                    <div className="flex items-center space-x-1 text-sm text-gray-600">
+                    <div className="font-semibold text-white">{currentUser?.fullName || currentUser?.displayName || 'Người dùng'}</div>
+                    <div className="flex items-center space-x-1 text-sm text-white/80">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                       </svg>
@@ -821,15 +820,15 @@ export default function HomePage() {
                 />
 
                 {/* Action Icons */}
-                <div className="border border-slate-200 rounded-xl p-3 mb-4 bg-slate-50/70">
-                  <div className="text-sm text-slate-500 text-center">
+                <div className="border border-white/30 rounded-xl p-3 mb-4 bg-white/10">
+                  <div className="text-sm text-white/90 text-center">
                     Hoặc <button
                       onClick={() => {
                         resetCreatePostForm()
                         setShowCreatePost(false)
                         router.push('/posts/create')
                       }}
-                      className="text-teal-700 hover:underline font-medium"
+                      className="text-white underline font-medium hover:text-white/80"
                     >
                       tạo bài đăng chi tiết hơn
                     </button>
@@ -841,7 +840,7 @@ export default function HomePage() {
                     type="button"
                     onClick={handleCancelCreatePost}
                     disabled={postLoading}
-                    className="w-full border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full border border-white/50 text-white hover:bg-white/20 font-semibold py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Không đăng nữa
                   </button>
@@ -892,22 +891,22 @@ export default function HomePage() {
         )}
 
         {/* Sidebar */}
-        <div className="hidden md:flex w-72 bg-gradient-to-b from-rose-50/85 via-orange-50/70 to-white/85 backdrop-blur-xl border-r border-rose-100/80 flex-col shadow-xl shadow-rose-900/5 stagger-item">
+        <div className="hidden md:flex w-72 bg-gradient-to-b from-teal-50/85 via-cyan-50/70 to-white/85 backdrop-blur-xl border-r border-teal-100/80 flex-col shadow-xl shadow-teal-900/5 stagger-item">
           {/* Navigation Menu */}
           <nav className="flex-1 overflow-y-auto p-3">
             <div className="space-y-1">
               {/* Người dùng */}
               <Link
                 href="/profile"
-                className="relative flex items-center space-x-3 px-3 py-3 rounded-2xl bg-gradient-to-r from-rose-100 via-orange-50 to-amber-50 border border-rose-200 text-rose-700 transition cursor-pointer shadow-md shadow-rose-900/10"
+                className="relative flex items-center space-x-3 px-3 py-3 rounded-2xl bg-gradient-to-r from-teal-100 via-cyan-50 to-teal-50 border border-teal-200 text-teal-700 transition cursor-pointer shadow-md shadow-teal-900/10"
               >
-                <span className="absolute -top-2 right-2 rounded-full bg-rose-500 text-white text-[10px] font-semibold px-2 py-0.5 shadow-sm">
+                <span className="absolute -top-2 right-2 rounded-full bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 shadow-sm">
                   Tài khoản của bạn
                 </span>
                 {renderAvatar('small')}
                 <div className="flex-1">
                   <div className="font-semibold text-sm">{currentUser?.fullName || currentUser?.displayName || 'Người dùng'}</div>
-                  <div className="text-[11px] text-rose-600/80">Ưu tiên hiển thị</div>
+                  <div className="text-[11px] text-teal-600/80">Ưu tiên hiển thị</div>
                 </div>
               </Link>
 
@@ -915,32 +914,42 @@ export default function HomePage() {
               {(() => {
                 const userRole = currentUser?.accountType || currentUser?.role
                 const isCustomer = userRole === 'CUSTOMER' || userRole === 'customer'
-                const isWorker = userRole === 'WORKER' || userRole === 'provider'
+                const isWorker =
+                  userRole === 'WORKER' ||
+                  userRole === 'PROVIDER' ||
+                  userRole === 'provider'
 
                 return (
                   <>
                     {/* Menu cho Khách hàng */}
                     {isCustomer && (
                       <>
-                        <Link href="/bai-dang-cua-toi" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/bai-dang-cua-toi" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                           <span className="text-sm">Bài đăng của tôi</span>
                         </Link>
 
-                        <Link href="/lich-su" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/lich-su" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <span className="text-sm">Lịch sử hoạt động</span>
                         </Link>
 
-                        <Link href="/yeu-thich" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/yeu-thich" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                           </svg>
                           <span className="text-sm">Thợ yêu thích</span>
+                        </Link>
+
+                        <Link href="/yeu-cau-rieng" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          <span className="text-sm">Quản lý Yêu Cầu Riêng</span>
                         </Link>
                       </>
                     )}
@@ -948,25 +957,39 @@ export default function HomePage() {
                     {/* Menu cho Thợ */}
                     {isWorker && (
                       <>
-                        <Link href="/da-luu" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/da-luu" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                           </svg>
                           <span className="text-sm">Đã lưu</span>
                         </Link>
 
-                        <Link href="/gio-hang" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/gio-hang" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                           <span className="text-sm">Chào giá của tôi</span>
                         </Link>
 
-                        <Link href="/lich-su" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-rose-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                        <Link href="/danh-gia-ve-toi" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                          </svg>
+                          <span className="text-sm">Đánh giá về tôi</span>
+                        </Link>
+
+                        <Link href="/lich-su" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <span className="text-sm">Lịch sử hoạt động</span>
+                        </Link>
+
+                        <Link href="/yeu-cau-rieng" className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-teal-50/80 hover:shadow-md text-slate-700 transition-all duration-200">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          <span className="text-sm">Quản lý Yêu Cầu Riêng</span>
                         </Link>
                       </>
                     )}
@@ -979,7 +1002,7 @@ export default function HomePage() {
             <div className="mt-6">
               <button
                 onClick={() => setShowCategories(!showCategories)}
-                className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-slate-600 hover:bg-rose-50/80 rounded-xl transition"
+                className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-slate-600 hover:bg-teal-50/80 rounded-xl transition"
               >
                 <span className="font-medium">Lĩnh vực của bạn</span>
                 <svg
@@ -994,8 +1017,8 @@ export default function HomePage() {
               {showCategories && (
                 <div className="mt-2 space-y-1">
                   {categories.map(cat => (
-                    <a key={cat.id} href="#" className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-rose-50/80 text-slate-700 text-sm transition-all hover:translate-x-1">
-                      <span>{cat.icon}</span>
+                    <a key={cat.id} href="#" className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-teal-50/80 text-slate-700 text-sm transition-all hover:translate-x-1">
+                      <FontAwesomeIcon icon={cat.icon} />
                       <span>{cat.name}</span>
                     </a>
                   ))}
@@ -1007,7 +1030,7 @@ export default function HomePage() {
             <div className="mt-6">
               <button
                 onClick={() => setShowServices(!showServices)}
-                className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-slate-600 hover:bg-rose-50/80 rounded-xl transition"
+                className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-slate-600 hover:bg-teal-50/80 rounded-xl transition"
               >
                 <span className="font-medium">Khám phá thêm mục</span>
                 <svg
@@ -1022,8 +1045,8 @@ export default function HomePage() {
               {showServices && (
                 <div className="mt-2 space-y-1">
                   {services.map(service => (
-                    <a key={service.id} href="#" className={`flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-rose-50/80 text-sm transition-all hover:translate-x-1 ${service.color}`}>
-                      <span>{service.icon}</span>
+                    <a key={service.id} href="#" className={`flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-teal-50/80 text-sm transition-all hover:translate-x-1 ${service.color}`}>
+                      <FontAwesomeIcon icon={service.icon} />
                       <span className="text-gray-700">{service.name}</span>
                     </a>
                   ))}
@@ -1043,9 +1066,32 @@ export default function HomePage() {
                 <div className="rounded-2xl border border-white/80 bg-white/80 backdrop-blur p-3 shadow-lg shadow-slate-900/5">
                   <div className="flex items-center gap-2 overflow-x-auto">
                     <Link href="/profile" className="shrink-0 px-3 py-1.5 rounded-full bg-teal-600 text-white text-sm font-medium">Cá nhân</Link>
-                    <Link href="/bai-dang-cua-toi" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Bài đăng</Link>
-                    <Link href="/lich-su" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Lịch sử</Link>
-                    <Link href="/yeu-thich" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Yêu thích</Link>
+                    {(() => {
+                      const userRole = currentUser?.accountType || currentUser?.role
+                      const isCustomer = userRole === 'CUSTOMER' || userRole === 'customer'
+                      const isWorker =
+                        userRole === 'WORKER' ||
+                        userRole === 'PROVIDER' ||
+                        userRole === 'provider'
+                      if (isWorker) {
+                        return (
+                          <>
+                            <Link href="/gio-hang" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Chào giá</Link>
+                            <Link href="/danh-gia-ve-toi" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Đánh giá</Link>
+                            <Link href="/lich-su" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Lịch sử</Link>
+                          </>
+                        )
+                      }
+                      return (
+                        <>
+                          {isCustomer && (
+                            <Link href="/bai-dang-cua-toi" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Bài đăng</Link>
+                          )}
+                          <Link href="/lich-su" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Lịch sử</Link>
+                          <Link href="/yeu-thich" className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm">Yêu thích</Link>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1077,7 +1123,7 @@ export default function HomePage() {
                         </svg>
                         <span className="font-medium">Ảnh/Video</span>
                       </button>
-                      <button className="flex items-center justify-center space-x-2 px-3 py-2 text-rose-700 bg-rose-50/70 hover:bg-rose-100 rounded-xl transition">
+                      <button className="flex items-center justify-center space-x-2 px-3 py-2 text-teal-700 bg-teal-50/70 hover:bg-teal-100 rounded-xl transition">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1175,7 +1221,10 @@ export default function HomePage() {
 
                   const postAuthor = isMyPost ? currentUser : post.customer
                   const userRole = currentUser?.accountType || currentUser?.role
-                  const isWorker = userRole === 'WORKER' || userRole === 'provider'
+                  const isWorker =
+                  userRole === 'WORKER' ||
+                  userRole === 'PROVIDER' ||
+                  userRole === 'provider'
                   const postId = String(post.id)
                   const isSaved = savedPostIds.has(postId)
                   const isSaving = savingPostIds.has(postId)
@@ -1455,20 +1504,8 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      {/* Post Stats */}
-                      <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between text-sm text-slate-500">
-                        <span>{post.likes} lượt thích</span>
-                      </div>
-
                       {/* Post Actions */}
                       <div className="px-3 md:px-4 py-2 border-t border-slate-100 flex items-center justify-around gap-2">
-                        <button className="flex items-center space-x-2 px-4 py-2 hover:bg-slate-100 rounded-xl transition">
-                          <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                          </svg>
-                          <span className="text-slate-700 font-medium">Thích</span>
-                        </button>
-
                         {!isMyPost && (() => {
                           // Chỉ thợ mới có thể gửi chào giá
                           if (!isWorker) return null

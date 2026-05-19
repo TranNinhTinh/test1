@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * GET /api/quotes/{id}/with-revisions
  * Xem quote với toàn bộ lịch sử revisions
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

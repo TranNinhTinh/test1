@@ -4,6 +4,8 @@ import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 const API_BASE_URL = getPublicApiBaseV1()
 
 // POST /api/chat/conversations/[id]/close - Đóng conversation
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

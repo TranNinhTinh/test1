@@ -100,7 +100,10 @@ class SavedPostService {
       throw new Error(data.message || data.error || 'Không thể kiểm tra trạng thái lưu')
     }
 
-    return !!data.saved
+    // BFF có thể chuẩn hóa `saved`; backend gốc dùng `isSaved`
+    if (typeof data.saved === 'boolean') return data.saved
+    if (typeof data.isSaved === 'boolean') return data.isSaved
+    return false
   }
 }
 

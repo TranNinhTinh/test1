@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/app/components/AppShell'
-import Header from '@/app/components/Header'
 import AppField from '@/app/components/ui/AppField'
 import AppTextarea from '@/app/components/ui/AppTextarea'
 import AppButton from '@/app/components/ui/AppButton'
@@ -28,10 +27,8 @@ export default function PostQuotePage() {
   const [quoteForm, setQuoteForm] = useState({
     price: '',
     description: '',
-    estimatedDuration: '',
+    scheduledTime: '',
     terms: '',
-    imageUrls: [] as string[],
-    imageUrlInput: '',
   })
 
   useEffect(() => {
@@ -66,9 +63,9 @@ export default function PostQuotePage() {
     }
   }, [postId, router])
 
-  const userRole = currentUser?.accountType || currentUser?.role
-  const isCustomer = userRole === 'CUSTOMER' || userRole === 'customer'
-  const isWorker = userRole === 'WORKER' || userRole === 'provider'
+  const userRoleNorm = (currentUser?.accountType || currentUser?.role || '').toString().toUpperCase()
+  const isCustomer = userRoleNorm === 'CUSTOMER'
+  const isWorker = userRoleNorm === 'WORKER' || userRoleNorm === 'PROVIDER'
 
   useEffect(() => {
     if (!currentUser || loadingPost) return
@@ -92,13 +89,16 @@ export default function PostQuotePage() {
 
     setIsSubmitting(true)
     try {
+      const scheduledLine = quoteForm.scheduledTime
+        ? `Thời gian đến làm: ${new Date(quoteForm.scheduledTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}`
+        : ''
+      const finalTerms = [scheduledLine, quoteForm.terms.trim()].filter(Boolean).join('\n') || undefined
+
       await quoteService.createQuote({
         postId: post.id,
         price: parseFloat(quoteForm.price),
         description: quoteForm.description,
-        estimatedDuration: quoteForm.estimatedDuration ? parseInt(quoteForm.estimatedDuration, 10) : undefined,
-        terms: quoteForm.terms.trim() || undefined,
-        imageUrls: quoteForm.imageUrls.length > 0 ? quoteForm.imageUrls : undefined,
+        terms: finalTerms,
       })
 
       try {
@@ -131,7 +131,6 @@ export default function PostQuotePage() {
   if (isCustomer) {
     return (
       <AppShell>
-        <Header />
         <div className="app-container py-app-lg text-center text-foreground-muted">Đang chuyển hướng…</div>
       </AppShell>
     )
@@ -140,7 +139,6 @@ export default function PostQuotePage() {
   if (!post) {
     return (
       <AppShell>
-        <Header />
         <div className="app-container max-w-lg py-app-lg text-center">
           <p className="text-foreground-muted">Không tìm thấy bài đăng.</p>
           <AppButton type="button" variant="outlined" className="mt-4" onClick={() => router.push('/home')}>
@@ -154,7 +152,6 @@ export default function PostQuotePage() {
   if (!isWorker) {
     return (
       <AppShell>
-        <Header />
         <div className="app-container max-w-lg py-app-lg text-center">
           <p className="text-foreground-muted">Chỉ tài khoản thợ mới có thể gửi báo giá.</p>
           <Link href={`/posts/${postId}`} className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
@@ -168,7 +165,6 @@ export default function PostQuotePage() {
   return (
     <AppShell>
       <div className="min-h-screen bg-surface-lowest pb-app-lg">
-        <Header />
 
         <div className="app-container max-w-2xl py-app-md">
           <Link
@@ -238,66 +234,20 @@ export default function PostQuotePage() {
                 rows={3}
               />
 
-              <AppField
-                label="Thời gian ước tính (phút)"
-                name="quoteDuration"
-                type="number"
-                min={0}
-                value={quoteForm.estimatedDuration}
-                onChange={(e) => setQuoteForm({ ...quoteForm, estimatedDuration: e.target.value })}
-                placeholder="Ví dụ: 120"
-              />
-
               <div>
-                <p className="mb-2 text-sm font-semibold text-foreground">Hình ảnh</p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1">
-                    <AppField
-                      name="quoteImageUrl"
-                      value={quoteForm.imageUrlInput}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, imageUrlInput: e.target.value })}
-                      placeholder="Nhập URL hình ảnh"
-                      aria-label="URL hình ảnh báo giá"
-                    />
-                  </div>
-                  <AppButton
-                    type="button"
-                    variant="filled"
-                    className="w-full shrink-0 sm:w-auto sm:min-h-[52px]"
-                    onClick={() => {
-                      const u = quoteForm.imageUrlInput.trim()
-                      if (!u) return
-                      setQuoteForm({
-                        ...quoteForm,
-                        imageUrls: [...quoteForm.imageUrls, u],
-                        imageUrlInput: '',
-                      })
-                    }}
-                  >
-                    Thêm
-                  </AppButton>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground" htmlFor="quoteScheduledTime">
+                  Thời gian đến làm
+                </label>
+                <div className="rounded-app-lg border border-outline-variant/80 bg-surface px-app-sm shadow-inner-soft transition-[border-color,box-shadow] duration-app-fast ease-app-emphasized focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/18">
+                  <input
+                    id="quoteScheduledTime"
+                    type="datetime-local"
+                    name="quoteScheduledTime"
+                    value={quoteForm.scheduledTime}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, scheduledTime: e.target.value })}
+                    className="w-full border-0 bg-transparent py-3 text-foreground outline-none focus:ring-0"
+                  />
                 </div>
-                {quoteForm.imageUrls.length > 0 && (
-                  <ul className="mt-2 space-y-1 rounded-app-lg border border-brand/20 bg-brand-tint/25 p-app-sm text-sm text-foreground">
-                    {quoteForm.imageUrls.map((url, i) => (
-                      <li key={`${url}-${i}`} className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate">{url}</span>
-                        <button
-                          type="button"
-                          className="shrink-0 text-app-error hover:underline"
-                          onClick={() =>
-                            setQuoteForm({
-                              ...quoteForm,
-                              imageUrls: quoteForm.imageUrls.filter((_, idx) => idx !== i),
-                            })
-                          }
-                        >
-                          Xóa
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
 
               <div className="flex flex-col gap-3 border-t border-outline-variant/50 pt-app-md sm:flex-row">

@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * POST /api/quotes
  * [Provider] Tạo quote mới cho post
  */
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')

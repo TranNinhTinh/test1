@@ -4,6 +4,8 @@ import { fetchBackend, isBackendFetchAbort } from '@/lib/server/fetch-backend'
 
 const API_BASE_URL = getBackendApiOrigin()
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, any>

@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * GET /api/quotes/post/{postId}
  * [Customer] Lấy tất cả quote của một post
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { postId: string } }

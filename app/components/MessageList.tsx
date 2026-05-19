@@ -1,6 +1,8 @@
 import { Message } from '@/lib/api/chat.service'
 import { useEffect, useRef } from 'react'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCheckDouble, faCheck } from '@fortawesome/free-solid-svg-icons'
 
 interface MessageListProps {
   messages: Message[]
@@ -119,7 +121,7 @@ export default function MessageList({ messages, currentUserId }: MessageListProp
                       {formatTime(message.createdAt)}
                       {isOwn && (
                         <span className="ml-1">
-                          {message.isRead ? '✓✓' : '✓'}
+                          <FontAwesomeIcon icon={message.isRead ? faCheckDouble : faCheck} />
                         </span>
                       )}
                     </div>

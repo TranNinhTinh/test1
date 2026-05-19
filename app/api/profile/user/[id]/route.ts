@@ -5,7 +5,6 @@ import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
 const getDomainUrl = () => {
   let baseDomain = process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL
   if (!baseDomain) {
-    console.warn('❌ API_DOMAIN not configured, defaulting to DEFAULT_PUBLIC_API_V1')
     baseDomain = DEFAULT_PUBLIC_API_V1
   }
   // Remove /api/v1 suffix if present to add it back consistently
@@ -44,6 +43,8 @@ const API_BASE_URL = getDomainUrl()
  *   }
  * }
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

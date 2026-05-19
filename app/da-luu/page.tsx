@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import { ProfileService } from '@/lib/api/profile-new.service'
 import { savedPostService } from '@/lib/api/saved-post.service'
-import Image from 'next/image'
 import Link from 'next/link'
 
 interface SavedPost {
@@ -113,98 +111,8 @@ export default function SavedPage() {
     <AppShell>
     <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
-      <Header />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-          <div className="p-3 border-b border-gray-200">
-            <div className="flex items-center justify-center">
-              <Image
-                src="/logo.png"
-                alt="Thợ Tốt"
-                width={120}
-                height={95}
-                className="object-contain"
-                style={{ maxWidth: '120px', height: 'auto' }}
-              />
-            </div>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto p-2">
-            <div className="space-y-1">
-              <a href="/profile" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">
-                  {(currentUser?.displayName || currentUser?.fullName || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-sm line-clamp-1">
-                    {currentUser?.displayName || currentUser?.fullName || 'Người dùng'}
-                  </div>
-                </div>
-              </a>
-
-              <a href="/home" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <span className="text-sm">Trang chủ</span>
-              </a>
-
-              <a href="/tin-nhan" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span className="text-sm">Tin nhắn</span>
-              </a>
-
-              <a href="/thong-bao" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span className="text-sm">Thông báo</span>
-              </a>
-
-              <a href="/da-luu" className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
-                <span className="text-sm">Đã lưu</span>
-                <span className="ml-auto bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{savedPosts.length}</span>
-              </a>
-
-              <a href="/lich-su" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm">Lịch sử yêu cầu</span>
-              </a>
-
-              <a href="/yeu-thich" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <span className="text-sm">Thợ yêu thích</span>
-              </a>
-            </div>
-          </nav>
-
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={async () => {
-                await AuthService.logout()
-                router.push('/dang-nhap')
-              }}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition duration-200"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="font-medium">Đăng xuất</span>
-            </button>
-          </div>
-        </div>
-
         {/* Main Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Header */}

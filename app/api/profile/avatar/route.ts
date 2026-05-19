@@ -5,7 +5,6 @@ import { DEFAULT_PUBLIC_API_V1 } from '@/lib/server/public-api-base'
 const getDomainUrl = () => {
   let baseDomain = process.env.NEXT_PUBLIC_API_DOMAIN || process.env.NEXT_PUBLIC_API_URL
   if (!baseDomain) {
-    console.warn('❌ API_DOMAIN not configured, defaulting to DEFAULT_PUBLIC_API_V1')
     baseDomain = DEFAULT_PUBLIC_API_V1
   }
 
@@ -49,6 +48,8 @@ const parseResponseBody = async (response: Response) => {
  *   "updatedAt": "string"
  * }
  */
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')

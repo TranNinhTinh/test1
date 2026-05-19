@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { chatService, type Message, MessageType } from '@/lib/api/chat.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import { quoteService } from '@/lib/api/quote.service'
 import { orderService } from '@/lib/api/order.service'
+import { PostService } from '@/lib/api/post.service'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faHourglass, faPaperPlane, faMoneyBillWave, faClipboardList, faCircleXmark, faCircleCheck, faLock } from '@fortawesome/free-solid-svg-icons'
 
 interface User {
     id: string
@@ -21,6 +24,10 @@ interface ChatQuoteFlowProps {
     otherUser: User
     currentUserRole?: 'CUSTOMER' | 'PROVIDER'
     isClosed?: boolean
+}
+
+function normalizeQuoteStatusKey(status: string | null | undefined): string {
+    return (status ?? '').toLowerCase().replace(/-/g, '_').trim()
 }
 
 export default function ChatQuoteFlow({
@@ -47,6 +54,13 @@ export default function ChatQuoteFlow({
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [confirmLoading, setConfirmLoading] = useState(false)
     const [confirmError, setConfirmError] = useState('')
+
+    const [latestQuoteId, setLatestQuoteId] = useState<string | undefined>(quoteId)
+    const [latestPostTitle, setLatestPostTitle] = useState<string>('')
+
+    /** Trạng thái quote từ API — thợ luôn thấy CTA xác nhận khi khách đã request order (order_requested). */
+    const [providerQuoteStatus, setProviderQuoteStatus] = useState<string | null>(null)
+    const quoteStatusRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const hasConversationId = Boolean(conversationId)
     const hasCurrentUserId = Boolean(currentUser?.id)
@@ -98,6 +112,114 @@ export default function ChatQuoteFlow({
             .filter(Boolean)
     }
 
+    /** Chuẩn hóa payload từ socket/DB để so sánh id và hiển thị ổn định */
+    const normalizeIncomingMessage = (raw: any): Message => {
+        const created =
+            raw?.createdAt instanceof Date
+                ? raw.createdAt.toISOString()
+                : typeof raw?.createdAt === 'string'
+                  ? raw.createdAt
+                  : new Date().toISOString()
+        return {
+            id: String(raw?.id ?? ''),
+            conversationId: String(raw?.conversationId ?? conversationId),
+            senderId: String(raw?.senderId ?? ''),
+            type: (raw?.type as string) || MessageType.TEXT,
+            content: raw?.content ?? '',
+            fileUrls: parseFileUrls(raw?.fileUrls),
+            isRead: Boolean(raw?.isRead),
+            readAt:
+                typeof raw?.readAt === 'string'
+                    ? raw.readAt
+                    : raw?.readAt instanceof Date
+                      ? raw.readAt.toISOString()
+                      : undefined,
+            createdAt: created,
+        }
+    }
+
+    const appendMessageDeduped = (raw: any) => {
+        const m = normalizeIncomingMessage(raw)
+        if (!m.id) return
+        setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev
+            return [...prev, m].sort(
+                (a, b) =>
+                    new Date(String(a.createdAt)).getTime() -
+                    new Date(String(b.createdAt)).getTime(),
+            )
+        })
+    }
+
+    const refreshProviderQuoteStatus = useCallback(async () => {
+        if (!quoteId || currentUserRole !== 'PROVIDER') return
+        try {
+            const raw = await quoteService.getQuoteById(quoteId)
+            const payload = raw as unknown as { data?: { status?: string }; status?: string }
+            const q = payload?.data ?? payload
+            const st = typeof q?.status === 'string' ? q.status : null
+            setProviderQuoteStatus(st)
+        } catch {
+            setProviderQuoteStatus(null)
+        }
+    }, [quoteId, currentUserRole])
+
+    useEffect(() => {
+        setLatestQuoteId(quoteId)
+        if (!quoteId || !otherUser?.id) return
+
+        const loadLatestQuoteContext = async () => {
+            try {
+                if (currentUserRole === 'PROVIDER') {
+                    const myQuotes = await quoteService.getMyQuotes()
+                    const sorted = [...myQuotes].sort(
+                        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    )
+                    for (const q of sorted) {
+                        if (!q.postId) continue
+                        try {
+                            const post = await PostService.getPostById(q.postId)
+                            const postCustomerId = post.customerId || (post as any).customer?.id
+                            if (postCustomerId === otherUser.id) {
+                                setLatestQuoteId(q.id)
+                                setLatestPostTitle(post.title)
+                                break
+                            }
+                        } catch {
+                            continue
+                        }
+                    }
+                } else {
+                    const q = await quoteService.getQuoteById(quoteId)
+                    const postId = (q as any).postId
+                    if (postId) {
+                        const post = await PostService.getPostById(postId)
+                        setLatestPostTitle(post.title)
+                    }
+                }
+            } catch {
+                // best-effort; fall back to quoteId prop
+            }
+        }
+
+        void loadLatestQuoteContext()
+    }, [quoteId, otherUser?.id, currentUserRole])
+
+    useEffect(() => {
+        setProviderQuoteStatus(null)
+        if (!quoteId || currentUserRole !== 'PROVIDER') return
+        void refreshProviderQuoteStatus()
+    }, [quoteId, currentUserRole, refreshProviderQuoteStatus])
+
+    useEffect(() => {
+        if (!quoteId || currentUserRole !== 'PROVIDER') return
+        const onFocus = () => {
+            void refreshProviderQuoteStatus()
+        }
+        window.addEventListener('focus', onFocus)
+        return () => window.removeEventListener('focus', onFocus)
+    }, [quoteId, currentUserRole, refreshProviderQuoteStatus])
+
     // Load messages via REST API - match code mẫu
     const loadMessages = async () => {
         try {
@@ -146,29 +268,35 @@ export default function ChatQuoteFlow({
 
         // Listen for new messages (match code mẫu - Kiểm tra xem message đã tồn tại chưa)
         const unsubscribeNewMessage = chatSocketService.on('new_message', (data: any) => {
-            console.log('💬 new_message event:', data)
-
-            // Update messages nếu đang mở conversation này
-            if (data.conversationId === conversationId) {
-                setMessages((prevMessages) => {
-                    // Kiểm tra xem message đã tồn tại chưa (tránh duplicate)
-                    const exists = prevMessages.some((m) => m.id === data.message.id)
-                    if (exists) {
-                        console.log('Message already exists, skipping...')
-                        return prevMessages
-                    }
-                    console.log('Adding new message to list')
-                    return [...prevMessages, data.message]
-                })
+            if (data.conversationId === conversationId && data.message) {
+                appendMessageDeduped(data.message)
+            }
+            if (
+                data.conversationId === conversationId &&
+                quoteId &&
+                currentUserRole === 'PROVIDER'
+            ) {
+                if (quoteStatusRefreshTimerRef.current) {
+                    clearTimeout(quoteStatusRefreshTimerRef.current)
+                }
+                quoteStatusRefreshTimerRef.current = setTimeout(() => {
+                    quoteStatusRefreshTimerRef.current = null
+                    void refreshProviderQuoteStatus()
+                }, 500)
             }
         })
 
         // Listen for messages read
         const unsubscribeMessagesRead = chatSocketService.on('messages_read', (data: any) => {
-            console.log('✅ messages_read event:', data)
-            if (data.conversationId === conversationId) {
-                loadMessages()
-            }
+            if (data.conversationId !== conversationId || !data.readBy) return
+            // Backend đánh đọc tin từ người khác khi readBy mở hội thoại — cập nhật local, không gọi REST lại
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.senderId !== data.readBy
+                        ? { ...msg, isRead: true, readAt: new Date().toISOString() }
+                        : msg,
+                ),
+            )
         })
 
         // Cleanup
@@ -176,8 +304,19 @@ export default function ChatQuoteFlow({
             unsubscribeNewMessage()
             unsubscribeMessagesRead()
             chatSocketService.leaveConversation(conversationId)
+            if (quoteStatusRefreshTimerRef.current) {
+                clearTimeout(quoteStatusRefreshTimerRef.current)
+                quoteStatusRefreshTimerRef.current = null
+            }
         }
-    }, [conversationId, hasConversationId, hasCurrentUserId])
+    }, [
+        conversationId,
+        hasConversationId,
+        hasCurrentUserId,
+        quoteId,
+        currentUserRole,
+        refreshProviderQuoteStatus,
+    ])
 
     // Auto scroll
     useEffect(() => {
@@ -208,14 +347,12 @@ export default function ChatQuoteFlow({
                 content: newMessage
             })
 
-            console.log('✅ send_message ack:', response)
-
             if (response.success) {
-                // Không cần thêm message vào state ở đây nữa
-                // Vì sẽ nhận qua event 'new_message'
-                console.log('Message sent successfully, waiting for new_message event...')
+                // Realtime: hiển thị ngay từ ack (backend đã lưu DB); new_message tới sau vẫn dedupe theo id
+                if (response.message) {
+                    appendMessageDeduped(response.message)
+                }
                 setNewMessage('')
-                // Message sẽ tự động update qua new_message event listener
             } else {
                 throw new Error(response.error || 'Unknown socket error')
             }
@@ -245,7 +382,8 @@ export default function ChatQuoteFlow({
 
     // Revise quote
     const handleReviseQuote = async (newPrice: number, newDescription: string) => {
-        if (!quoteId) {
+        const activeQuoteId = latestQuoteId ?? quoteId
+        if (!activeQuoteId) {
             alert('❌ Không tìm thấy báo giá')
             return
         }
@@ -254,28 +392,29 @@ export default function ChatQuoteFlow({
             setOrderLoading(true)
             setOrderError('')
 
-            await quoteService.reviseQuote(quoteId, {
+            await quoteService.reviseQuote(activeQuoteId, {
                 price: newPrice,
                 description: newDescription
             })
 
+            const titlePart = latestPostTitle ? ` [${latestPostTitle}]` : ''
             // Send via Socket with fallback to REST
             const payload = {
                 type: 'text' as const,
-                content: `Thợ chào giá: ${newPrice.toLocaleString()}đ - ${newDescription}`
+                content: `Thợ chào giá${titlePart}: ${newPrice.toLocaleString()}đ - ${newDescription}`
             }
 
             const response = await chatSocketService.sendMessage(conversationId, payload)
-            if (!response.success) {
-                // Fallback to REST
+            if (response.success && response.message) {
+                appendMessageDeduped(response.message)
+            } else if (!response.success) {
                 await chatService.sendMessage(conversationId, {
                     type: MessageType.TEXT,
                     content: payload.content
                 })
+                const msgs = await chatService.getMessages(conversationId)
+                setMessages(Array.isArray(msgs) ? msgs : (msgs as any)?.messages || [])
             }
-
-            const msgs = await chatService.getMessages(conversationId)
-            setMessages(Array.isArray(msgs) ? msgs : (msgs as any)?.messages || [])
             alert('✅ Chào giá lại thành công!')
         } catch (error: any) {
             console.error('❌ Revision error:', error)
@@ -300,24 +439,26 @@ export default function ChatQuoteFlow({
             console.log('✅ Quote status changed to ORDER_REQUESTED')
 
             // Then send message notification
+            const titlePart = latestPostTitle ? ` [${latestPostTitle}]` : ''
             const payload = {
                 type: 'text' as const,
-                content: `Khách đặt đơn với giá: ${selectedQuoteData.price.toLocaleString()}đ`
+                content: `Khách đặt đơn${titlePart} với giá: ${selectedQuoteData.price.toLocaleString()}đ`
             }
 
             const response = await chatSocketService.sendMessage(conversationId, payload)
-            if (!response.success) {
+            if (response.success && response.message) {
+                appendMessageDeduped(response.message)
+            } else if (!response.success) {
                 await chatService.sendMessage(conversationId, {
                     type: MessageType.TEXT,
                     content: payload.content
                 })
+                const msgs = await chatService.getMessages(conversationId)
+                setMessages(Array.isArray(msgs) ? msgs : (msgs as any)?.messages || [])
             }
 
             setShowPlaceOrderModal(false)
             setSelectedQuoteData(null)
-
-            const msgs = await chatService.getMessages(conversationId)
-            setMessages(Array.isArray(msgs) ? msgs : (msgs as any)?.messages || [])
 
             alert('✅ Đặt đơn thành công! Vui lòng chờ thợ xác nhận.')
         } catch (error: any) {
@@ -341,24 +482,8 @@ export default function ChatQuoteFlow({
 
             await orderService.confirmFromQuote(quoteId)
 
-            const payload = {
-                type: 'text' as const,
-                content: '✅ Thợ đã xác nhận nhận việc. Đơn hàng được tạo.'
-            }
-
-            const response = await chatSocketService.sendMessage(conversationId, payload)
-            if (!response.success) {
-                await chatService.sendMessage(conversationId, {
-                    type: MessageType.TEXT,
-                    content: payload.content
-                })
-            }
-
             setShowConfirmModal(false)
-
-            const msgs = await chatService.getMessages(conversationId)
-            setMessages(Array.isArray(msgs) ? msgs : (msgs as any)?.messages || [])
-
+            await refreshProviderQuoteStatus()
             alert('✅ Đã tạo đơn hàng thành công!')
         } catch (error: any) {
             console.error('❌ Confirm order error:', error)
@@ -370,13 +495,13 @@ export default function ChatQuoteFlow({
     }
 
     if (loading) {
-        return <div className="flex items-center justify-center h-96">⏳ Đang tải...</div>
+        return <div className="flex items-center justify-center h-96"><FontAwesomeIcon icon={faHourglass} className="mr-2" />Đang tải...</div>
     }
 
     if (!hasConversationId) {
         return (
             <div className="flex items-center justify-center h-96 text-red-600">
-                ❌ Không tìm thấy ID cuộc trò chuyện
+                <FontAwesomeIcon icon={faCircleXmark} className="mr-1" />Không tìm thấy ID cuộc trò chuyện
             </div>
         )
     }
@@ -384,25 +509,25 @@ export default function ChatQuoteFlow({
     if (!hasCurrentUserId) {
         return (
             <div className="flex items-center justify-center h-96 text-red-600">
-                ❌ Không tìm thấy thông tin người dùng hiện tại
+                <FontAwesomeIcon icon={faCircleXmark} className="mr-1" />Không tìm thấy thông tin người dùng hiện tại
             </div>
         )
     }
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-lg shadow-lg">
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white rounded-lg shadow-lg">
             {/* ⚠️ Closed Conversation Warning */}
             {isClosed && (
                 <div className="bg-yellow-50 border-b-2 border-yellow-400 p-3">
                     <div className="flex items-center gap-2 text-yellow-800 text-sm">
-                        <span>🔒</span>
+                        <FontAwesomeIcon icon={faLock} />
                         <p>Cuộc trò chuyện này đã bị đóng. Bạn không thể gửi tin nhắn, nhưng vẫn có thể xem lịch sử.</p>
                     </div>
                 </div>
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-gray-400">
                         <p>Không có tin nhắn nào</p>
@@ -419,7 +544,7 @@ export default function ChatQuoteFlow({
                                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
                                     {msg.content?.includes('Thợ chào giá') ? (
                                         <div className="space-y-2">
-                                            <p className="text-sm font-semibold">💰 Báo giá</p>
+                                            <p className="text-sm font-semibold"><FontAwesomeIcon icon={faMoneyBillWave} className="mr-1" />Báo giá</p>
                                             <p className="text-sm">{msg.content}</p>
                                             {!isOwn && currentUserRole === 'CUSTOMER' && (
                                                 <button
@@ -439,7 +564,7 @@ export default function ChatQuoteFlow({
                                         </div>
                                     ) : msg.content?.includes('Khách đặt đơn') || msg.content?.includes('xác nhận') ? (
                                         <div className="space-y-2">
-                                            <p className="text-sm font-semibold">📋 Đơn hàng</p>
+                                            <p className="text-sm font-semibold"><FontAwesomeIcon icon={faClipboardList} className="mr-1" />Đơn hàng</p>
                                             <p className="text-sm">{msg.content}</p>
                                             {!isOwn && currentUserRole === 'PROVIDER' && !msg.content?.includes('xác nhận') && (
                                                 <button
@@ -493,16 +618,40 @@ export default function ChatQuoteFlow({
                 <div ref={messagesEndRef} />
             </div>
 
+            {/* Thợ: luôn có CTA khi API báo khách đã request order — không phụ thuộc tìm đúng bubble chat */}
+            {!isClosed &&
+                currentUserRole === 'PROVIDER' &&
+                quoteId &&
+                normalizeQuoteStatusKey(providerQuoteStatus) === 'order_requested' && (
+                    <div className="px-4 py-3 border-t border-green-200 bg-green-50 shrink-0">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-sm text-green-900">
+                                <p className="font-semibold">Khách đã đặt đơn</p>
+                                <p className="mt-0.5 text-green-800">
+                                    Xác nhận nhận việc để tạo đơn và bắt đầu làm (đơn chuyển sang đang tiến hành).
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmModal(true)}
+                                className="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                            >
+                                Xác nhận nhận việc
+                            </button>
+                        </div>
+                    </div>
+                )}
+
             {/* Action: Thợ chào giá lại */}
             {currentUserRole === 'PROVIDER' && (
-                <ReviseQuoteForm onSubmit={handleReviseQuote} loading={orderLoading} />
+                <ReviseQuoteForm onSubmit={handleReviseQuote} loading={orderLoading} postTitle={latestPostTitle} />
             )}
 
             {/* Message Input */}
             <div className="p-4 border-t border-gray-200">
                 {sendError && (
                     <div className="mb-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex items-center justify-between">
-                        <span>❌ {sendError}</span>
+                        <span><FontAwesomeIcon icon={faCircleXmark} className="mr-1" />{sendError}</span>
                         <button onClick={() => setSendError(null)} className="text-red-700 hover:text-red-900 font-bold">
                             ✕
                         </button>
@@ -510,7 +659,7 @@ export default function ChatQuoteFlow({
                 )}
                 {isClosed && (
                     <div className="mb-3 p-3 bg-gray-100 text-gray-700 rounded-lg text-sm">
-                        🔒 Cuộc trò chuyện đã đóng. Bạn không thể gửi tin nhắn.
+                        <FontAwesomeIcon icon={faLock} className="mr-1" />Cuộc trò chuyện đã đóng. Bạn không thể gửi tin nhắn.
                     </div>
                 )}
                 <form onSubmit={handleSendMessage} className="flex gap-2">
@@ -527,7 +676,7 @@ export default function ChatQuoteFlow({
                         disabled={sending || !newMessage.trim() || isClosed}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        {sending ? '⏳' : '📤'}
+                        <FontAwesomeIcon icon={sending ? faHourglass : faPaperPlane} />
                     </button>
                 </form>
             </div>
@@ -554,7 +703,7 @@ export default function ChatQuoteFlow({
     )
 }
 
-function ReviseQuoteForm({ onSubmit, loading }: { onSubmit: (price: number, desc: string) => void; loading: boolean }) {
+function ReviseQuoteForm({ onSubmit, loading, postTitle }: { onSubmit: (price: number, desc: string) => void; loading: boolean; postTitle?: string }) {
     const [price, setPrice] = useState(0)
     const [description, setDescription] = useState('')
     const [showForm, setShowForm] = useState(false)
@@ -566,7 +715,7 @@ function ReviseQuoteForm({ onSubmit, loading }: { onSubmit: (price: number, desc
                     onClick={() => setShowForm(true)}
                     className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium"
                 >
-                    💰 Chào giá lại
+                    <FontAwesomeIcon icon={faMoneyBillWave} className="mr-1" />Chào giá lại{postTitle ? ` — ${postTitle}` : ''}
                 </button>
             </div>
         )
@@ -606,7 +755,7 @@ function ReviseQuoteForm({ onSubmit, loading }: { onSubmit: (price: number, desc
                     disabled={loading || price === 0}
                     className="flex-1 px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:bg-orange-300"
                 >
-                    {loading ? '⏳' : 'Gửi'}
+                    {loading ? <FontAwesomeIcon icon={faHourglass} /> : 'Gửi'}
                 </button>
             </div>
         </div>
@@ -629,7 +778,7 @@ function PlaceOrderModal({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg w-full max-w-sm mx-4 p-6 shadow-xl">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 Đặt đơn</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4"><FontAwesomeIcon icon={faClipboardList} className="mr-2" />Đặt đơn</h2>
                 {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
                 <div className="bg-blue-50 p-4 rounded-lg mb-4">
                     <p className="text-sm text-gray-600">{quoteData.description}</p>
@@ -648,7 +797,7 @@ function PlaceOrderModal({
                         disabled={loading}
                         className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-green-300"
                     >
-                        {loading ? '⏳ Đang...' : '✅ Đặt đơn'}
+                        {loading ? <><FontAwesomeIcon icon={faHourglass} className="mr-1" />Đang...</> : <><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />Đặt đơn</>}
                     </button>
                 </div>
             </div>
@@ -670,7 +819,7 @@ function ConfirmOrderModal({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg w-full max-w-sm mx-4 p-6 shadow-xl">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">✅ Xác nhận nhận việc</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4"><FontAwesomeIcon icon={faCircleCheck} className="mr-2" />Xác nhận nhận việc</h2>
                 {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
                 <div className="bg-green-50 p-4 rounded-lg mb-4 text-sm text-gray-700">
                     Bằng cách xác nhận, bạn cam kết hoàn thành công việc. Đơn hàng sẽ chuyển sang trạng thái &quot;Đang tiến hành&quot;.
@@ -688,7 +837,7 @@ function ConfirmOrderModal({
                         disabled={loading}
                         className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-green-300"
                     >
-                        {loading ? '⏳ Đang...' : '✅ Xác nhận'}
+                        {loading ? <><FontAwesomeIcon icon={faHourglass} className="mr-1" />Đang...</> : <><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />Xác nhận</>}
                     </button>
                 </div>
             </div>

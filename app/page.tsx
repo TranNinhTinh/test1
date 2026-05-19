@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import ThoTotLogo from './components/ThoTotLogo'
 import AppFooter from './components/AppFooter'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowRight } from '@fortawesome/free-solid-svg-icons'
 
 const stats = [
   { value: '5,200+', label: 'Thợ đã xác thực' },
@@ -112,7 +114,7 @@ export default function Home() {
                 href="/dang-ky"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-brand to-brand-dark px-8 py-3 text-white font-semibold shadow-lg shadow-brand/20"
               >
-                Bắt đầu ngay →
+                Bắt đầu ngay <FontAwesomeIcon icon={faArrowRight} className="ml-1" />
               </Link>
               <Link
                 href="/dang-nhap"

@@ -1,39 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
+import { NextResponse } from 'next/server'
 
-const API_BASE_URL = getPublicApiBaseV1()
+/**
+ * Backend Nest hiện không có route đổi mật khẩu cho user đã đăng nhập
+ * (chỉ có forgot/reset qua email hoặc OTP). Giữ route BFF để UI không gọi URL lạc.
+ */
+export const dynamic = 'force-dynamic'
 
-export async function POST(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization')
-
-    if (!authHeader) {
-      return NextResponse.json(
-        { message: 'Unauthorized - Missing token' },
-        { status: 401 }
-      )
-    }
-
-    const body = await request.json()
-
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify(body)
-    })
-
-    const data = await response.json().catch(() => ({}))
-
-    return NextResponse.json(data, { status: response.status })
-  } catch (error) {
-    console.error('Change password proxy error:', error)
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      message:
+        'Đổi mật khẩu trong tài khoản chưa được backend hỗ trợ. Vui lòng dùng Quên mật khẩu (email/OTP) hoặc liên hệ quản trị.',
+    },
+    { status: 501 },
+  )
 }

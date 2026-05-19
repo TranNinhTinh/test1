@@ -1,5 +1,7 @@
 import { useRouter } from 'next/navigation'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCircleCheck, faArrowRight } from '@fortawesome/free-solid-svg-icons'
 
 interface AuthorCardProps {
     customerId: string
@@ -56,7 +58,7 @@ export default function AuthorCard({
                     </p>
                     {isVerified && (
                         <span title="Verified user" className="text-blue-500">
-                            ✅
+                            <FontAwesomeIcon icon={faCircleCheck} />
                         </span>
                     )}
                 </div>
@@ -70,7 +72,7 @@ export default function AuthorCard({
             </div>
 
             {/* Arrow */}
-            <div className="text-gray-400 group-hover:text-blue-600 transition">→</div>
+            <div className="text-gray-400 group-hover:text-blue-600 transition"><FontAwesomeIcon icon={faArrowRight} /></div>
         </div>
     )
 }

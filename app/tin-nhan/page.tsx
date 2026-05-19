@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { chatService, type Conversation, type Message } from '@/lib/api/chat.service'
 import { ProfileService } from '@/lib/api/profile.service'
@@ -12,6 +11,7 @@ import { AuthService } from '@/lib/api/auth.service'
 import { chatSocketService } from '@/lib/api/chat-socket.service'
 import ChatQuoteFlow from '@/app/components/ChatQuoteFlow'
 import ConversationItem from '@/app/components/ConversationItem'
+import ChatQuotePanel from '@/app/components/ChatQuotePanel'
 import { resolveMediaUrl as normalizeImageUrl } from '@/lib/media-url'
 
 interface User {
@@ -62,10 +62,13 @@ export default function TinNhanPage() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [usersCache, setUsersCache] = useState<{ [key: string]: User }>({})  // Cache for user info
+  const [showQuotePanel, setShowQuotePanel] = useState(false)
   const [conversationLastViewedAt, setConversationLastViewedAt] = useState<Record<string, number>>({})
   const [conversationViewedRawUnread, setConversationViewedRawUnread] = useState<Record<string, number>>({})
   const selectedConversationRef = useRef<Conversation | null>(null)
   const currentUserRef = useRef<User | null>(null)
+  const loadConversationsRef = useRef<(() => Promise<void>) | null>(null)
+  const reloadConversationsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -224,6 +227,7 @@ export default function TinNhanPage() {
     )
 
     setSelectedConversation(clearUnreadForCurrentUser(conversation, currentUserRef.current))
+    setShowQuotePanel(false)
 
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LAST_OPENED_CONVERSATION_STORAGE_KEY, conversation.id)
@@ -248,6 +252,28 @@ export default function TinNhanPage() {
       return {
         ...conversation,
         providerUnreadCount: (Number(conversation.providerUnreadCount) || 0) + 1
+      }
+    }
+
+    return conversation
+  }
+
+  const addUnreadForCurrentUser = (conversation: Conversation, user: User | null, amount: number): Conversation => {
+    if (!user) return conversation
+    const delta = Math.max(0, Math.floor(Number(amount) || 0))
+    if (delta === 0) return conversation
+
+    if (user.id === conversation.customerId || isCustomerRole(user)) {
+      return {
+        ...conversation,
+        customerUnreadCount: (Number(conversation.customerUnreadCount) || 0) + delta
+      }
+    }
+
+    if (user.id === conversation.providerId || isProviderRole(user)) {
+      return {
+        ...conversation,
+        providerUnreadCount: (Number(conversation.providerUnreadCount) || 0) + delta
       }
     }
 
@@ -354,9 +380,6 @@ export default function TinNhanPage() {
           icon: '/logo.png'
         })
       }
-
-      // Reload unread count
-      loadUnreadCount()
     })
 
     // Lắng nghe khi messages được đánh dấu đã đọc
@@ -371,10 +394,6 @@ export default function TinNhanPage() {
           readAt: new Date()
         })))
       }
-
-      // 🔥 FIX: Reload conversations to update unread counts
-      loadConversations()
-      loadUnreadCount()  // Cập nhật số badge ở icon tin nhắn trong Header
     })
 
     // Lắng nghe user typing
@@ -383,18 +402,32 @@ export default function TinNhanPage() {
       // TODO: Hiển thị "đang nhập..." trong UI
     })
 
-    // Lắng nghe unread count update
+    // unread_updated: user có thể không nằm trong room conversation (chỉ nhận qua user channel) — cập nhật local, tránh GET /conversations lặp lại
     const unsubscribeUnreadUpdated = chatSocketService.on('unread_updated', (data: { conversationId: string; increment: number }) => {
       console.log('🔢 Unread updated:', data)
-      loadUnreadCount()
+      setConversations(prev => {
+        const exists = prev.some(c => c.id === data.conversationId)
+        if (!exists) {
+          if (reloadConversationsDebounceRef.current) {
+            clearTimeout(reloadConversationsDebounceRef.current)
+          }
+          reloadConversationsDebounceRef.current = setTimeout(() => {
+            reloadConversationsDebounceRef.current = null
+            void loadConversationsRef.current?.()
+          }, 450)
+          return prev
+        }
+        const inc = Number(data.increment) > 0 ? Number(data.increment) : 1
+        return prev.map(conv =>
+          conv.id === data.conversationId
+            ? addUnreadForCurrentUser(conv, currentUserRef.current, inc)
+            : conv
+        )
+      })
     })
 
-    // Lắng nghe kết nối thành công
     const unsubscribeConnected = chatSocketService.on('connected', (data: { userId: string; unreadCount: number }) => {
       console.log('🔔 Chat connected:', data)
-      // Do not set unread from handshake payload because it can be stale.
-      // Always sync with backend source of truth.
-      void loadUnreadCount()
     })
 
     // Yêu cầu quyền browser notification
@@ -404,8 +437,11 @@ export default function TinNhanPage() {
       })
     }
 
-    // Cleanup
     return () => {
+      if (reloadConversationsDebounceRef.current) {
+        clearTimeout(reloadConversationsDebounceRef.current)
+        reloadConversationsDebounceRef.current = null
+      }
       unsubscribeNewMessage()
       unsubscribeMessagesRead()
       unsubscribeTyping()
@@ -414,37 +450,42 @@ export default function TinNhanPage() {
     }
   }, [])
 
-  // Load messages khi chọn conversation
+  // Load messages khi chọn conversation (chỉ theo id — tránh lặp vô hạn khi markAsRead tạo object conversation mới)
+  const selectedConversationId = selectedConversation?.id
+  const currentUserId = currentUser?.id
+
   useEffect(() => {
-    if (!selectedConversation) {
+    if (!selectedConversationId) {
       return
     }
 
-    if (!currentUser) {
+    const user = currentUserRef.current
+    if (!user?.id) {
       console.log('⏳ Waiting for currentUser to load...')
       return
     }
 
-    console.log('📨 Setting up conversation:', selectedConversation.id)
-    loadMessages(selectedConversation.id)
-    markAsRead(selectedConversation.id)
+    const conv = selectedConversationRef.current
+    if (!conv || conv.id !== selectedConversationId) {
+      return
+    }
 
-    // Determine otherUser ID based on current user role
-    const isCustomer = isCustomerRole(currentUser)
-    const otherUserId = isCustomer ? selectedConversation.providerId : selectedConversation.customerId
+    console.log('📨 Setting up conversation:', selectedConversationId)
+    loadMessages(selectedConversationId)
+    markAsRead(selectedConversationId)
+
+    const isCustomer = isCustomerRole(user)
+    const otherUserId = isCustomer ? conv.providerId : conv.customerId
 
     console.log('👤 Loading other user profile:', otherUserId)
-    // Load other user's profile
     loadOtherUserProfile(otherUserId)
 
-    // Join conversation room để nhận messages real-time
-    chatSocketService.joinConversation(selectedConversation.id)
+    chatSocketService.joinConversation(selectedConversationId)
 
-    // Cleanup: Leave room khi chuyển conversation
     return () => {
-      chatSocketService.leaveConversation(selectedConversation.id)
+      chatSocketService.leaveConversation(selectedConversationId)
     }
-  }, [selectedConversation, currentUser])
+  }, [selectedConversationId, currentUserId])
 
   // Load user profiles for all conversations whenever conversations or currentUser changes
   useEffect(() => {
@@ -549,6 +590,8 @@ export default function TinNhanPage() {
     }
   }
 
+  loadConversationsRef.current = loadConversations
+
   const loadMessages = async (conversationId: string) => {
     try {
       setMessagesLoading(true)
@@ -561,25 +604,6 @@ export default function TinNhanPage() {
       setMessages([])
     } finally {
       setMessagesLoading(false)
-    }
-  }
-
-  const loadUnreadCount = async () => {
-    try {
-      const userNow = currentUserRef.current
-      if (!userNow) {
-        return
-      }
-
-      const latestConversations = await chatService.getConversations()
-      const nextUnread = latestConversations.reduce((total, conv) => {
-        return total + getEffectiveUnreadCount(conv, userNow)
-      }, 0)
-
-      setUnreadCount(nextUnread)
-      emitUnreadCountChanged(nextUnread)
-    } catch (error) {
-      console.error('Error loading unread count:', error)
     }
   }
 
@@ -698,11 +722,6 @@ export default function TinNhanPage() {
         if (!prev || prev.id !== conversationId) return prev
         return clearUnreadForCurrentUser(prev, currentUserRef.current)
       })
-
-      await loadUnreadCount()
-
-      // Keep list in sync with server unread fields to avoid stale per-conversation badges
-      await loadConversations()
     } catch (error) {
       console.error('Error marking as read:', error)
     }
@@ -848,15 +867,12 @@ export default function TinNhanPage() {
 
   return (
     <AppShell>
-    <div className="flex h-screen flex-col bg-surface-lowest">
-      {/* Header */}
-      <Header currentUser={currentUser} />
-
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-surface-lowest">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar - Conversation List */}
-        <div className="w-full md:w-96 bg-white border-r flex flex-col">
+        <div className="w-full md:w-96 bg-white border-r flex h-full min-h-0 flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-4 border-b">
+          <div className="sticky top-0 z-10 bg-white p-4 border-b">
             <div className="flex items-center gap-3 mb-4">
               <button
                 onClick={() => router.push('/home')}
@@ -912,7 +928,7 @@ export default function TinNhanPage() {
           </div>
 
           {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -956,11 +972,11 @@ export default function TinNhanPage() {
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <div className="bg-white border-b p-4 flex items-center justify-between">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden">
                     {otherUser?.avatar ? (
@@ -987,6 +1003,23 @@ export default function TinNhanPage() {
                 </div>
 
                 <div className="flex gap-2">
+                  {selectedConversation.quoteId && (
+                    <button
+                      type="button"
+                      onClick={() => setShowQuotePanel((v) => !v)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        showQuotePanel
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                      title="Xem và quản lý báo giá"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      Báo giá
+                    </button>
+                  )}
                   {selectedConversation.isClosed ? (
                     <button
                       onClick={handleReopenConversation}
@@ -1058,6 +1091,20 @@ export default function TinNhanPage() {
         </div>
       </div>
     </div>
+
+    {selectedConversation?.quoteId && (
+      <ChatQuotePanel
+        customerId={selectedConversation.customerId}
+        providerId={selectedConversation.providerId}
+        quoteId={selectedConversation.quoteId}
+        currentUserRole={isProviderRole(currentUser) ? 'PROVIDER' : 'CUSTOMER'}
+        isOpen={showQuotePanel}
+        onClose={() => setShowQuotePanel(false)}
+        onActionCompleted={() => {
+          setShowQuotePanel(false)
+        }}
+      />
+    )}
     </AppShell>
   )
 }

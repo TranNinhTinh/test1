@@ -4,6 +4,7 @@ import './globals.css'
 // Import socket initialization to run on app load (no component needed)
 import '@/lib/socket-init'
 import AuthGuard from './components/AuthGuard'
+import GlobalHeader from './components/GlobalHeader'
 
 const roboto = Roboto({
   subsets: ['latin', 'vietnamese'],
@@ -26,6 +27,7 @@ export default function RootLayout({
     <html lang="vi" className={roboto.variable}>
       <body className={`${roboto.className} min-h-screen`}>
         <AuthGuard />
+        <GlobalHeader />
         {children}
       </body>
     </html>

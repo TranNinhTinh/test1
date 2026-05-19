@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCircle, faCircleCheck, faCalendarDays, faLocationDot } from '@fortawesome/free-solid-svg-icons'
 import { PostService } from '@/lib/api/post.service'
 import { AuthService } from '@/lib/api/auth.service'
 import { ProfileService } from '@/lib/api/profile-new.service'
@@ -106,7 +107,6 @@ export default function MyPostsPage() {
   return (
     <AppShell>
     <div className="min-h-screen bg-surface-lowest">
-      <Header />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Stats */}
@@ -201,13 +201,15 @@ export default function MyPostsPage() {
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-700'
                         }`}>
-                        {post.status === 'OPEN' ? '🟢 Đang tìm thợ' : '✅ Đã hoàn thành'}
+                        {post.status === 'OPEN'
+                          ? <><FontAwesomeIcon icon={faCircle} className="text-green-500 mr-1" />Đang tìm thợ</>
+                          : <><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />Đã hoàn thành</>}
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm line-clamp-2 mb-2">{post.description}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>📅 {new Date(post.createdAt).toLocaleDateString('vi-VN')}</span>
-                      {post.location && <span>📍 {post.location}</span>}
+                      <span><FontAwesomeIcon icon={faCalendarDays} className="mr-1" />{new Date(post.createdAt).toLocaleDateString('vi-VN')}</span>
+                      {post.location && <span><FontAwesomeIcon icon={faLocationDot} className="mr-1" />{post.location}</span>}
                       {post.budget && (
                         <span className="flex items-center gap-1">
                           <svg className="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 24 24">

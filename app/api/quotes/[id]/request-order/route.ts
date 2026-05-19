@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * POST /api/quotes/{id}/request-order
  * [Customer] Nhấn đặt đơn với revision cụ thể
  */
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -21,7 +23,13 @@ export async function POST(
     }
 
     const { id } = params
-    const body = await request.json()
+    let body: Record<string, unknown> = {}
+    try {
+      const text = await request.text()
+      if (text.trim()) body = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      body = {}
+    }
 
     const response = await fetch(`${API_BASE_URL}/quotes/${id}/request-order`, {
       method: 'POST',

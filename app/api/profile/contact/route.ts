@@ -34,6 +34,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  *   "updatedAt": "string"
  * }
  */
+export const dynamic = 'force-dynamic'
+
 export async function PUT(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')

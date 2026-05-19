@@ -4,6 +4,8 @@ import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 const API_BASE_URL = getPublicApiBaseV1()
 
 // POST /api/chat/conversations/[id]/read - Đánh dấu tin nhắn đã đọc
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -19,8 +21,6 @@ export async function POST(
     }
 
     const { id } = params
-
-    console.log('🔔 [Mark As Read] Calling backend API...', id)
 
     const response = await fetch(`${API_BASE_URL}/chat/conversations/${id}/read`, {
       method: 'POST',

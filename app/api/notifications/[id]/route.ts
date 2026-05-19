@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * DELETE /api/notifications/{id}
  * Xóa một thông báo
  */
+export const dynamic = 'force-dynamic'
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

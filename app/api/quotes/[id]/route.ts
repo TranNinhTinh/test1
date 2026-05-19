@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * GET /api/quotes/{id}
  * Xem chi tiết quote
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

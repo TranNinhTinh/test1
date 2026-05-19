@@ -3,17 +3,35 @@ import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 
 const API_BASE_URL = getPublicApiBaseV1()
 
+/** Nest `OrderStatus` dùng giá trị snake lowercase; client hay gửi PENDING, IN_PROGRESS, … */
+const BACKEND_ORDER_STATUSES = new Set(['pending', 'in_progress', 'completed', 'cancelled', 'disputed'])
+
+function normalizeOrderStatusQuery(raw: string): string {
+  if (!raw?.trim()) return ''
+  const t = raw.trim()
+  const lower = t.toLowerCase()
+  if (BACKEND_ORDER_STATUSES.has(lower)) return lower
+  const upper = t.toUpperCase().replace(/-/g, '_')
+  const map: Record<string, string> = {
+    PENDING: 'pending',
+    IN_PROGRESS: 'in_progress',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+    DISPUTED: 'disputed',
+  }
+  return map[upper] || ''
+}
+
 /**
  * GET /api/orders
  * Lấy danh sách đơn hàng của tôi
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
-    console.log('📦 [API Route] GET /api/orders called')
-    
     const authHeader = request.headers.get('authorization')
     if (!authHeader) {
-      console.error('📦 [API Route] No auth header')
       return NextResponse.json(
         { error: 'Unauthorized - Missing token' },
         { status: 401 }
@@ -21,23 +39,24 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || ''
-    const role = searchParams.get('role') || ''
-    const limit = searchParams.get('limit') || '20'
-    const cursor = searchParams.get('cursor') || ''
-
-    console.log('📦 [API Route] Query params:', { status, role, limit, cursor })
+    const rawStatus = searchParams.get('status') || ''
+    const statusNorm = normalizeOrderStatusQuery(rawStatus)
+    if (rawStatus.trim() && !statusNorm) {
+      return NextResponse.json(
+        {
+          error:
+            `Invalid status "${rawStatus}". Expected one of: pending, in_progress, completed, cancelled, disputed (or PENDING, IN_PROGRESS, …).`,
+        },
+        { status: 400 }
+      )
+    }
 
     const queryString = new URLSearchParams({
-      limit,
-      ...(status && { status }),
-      ...(role && { role }),
-      ...(cursor && { cursor })
+      ...(statusNorm ? { status: statusNorm } : {}),
     }).toString()
 
-    console.log('📦 [API Route] Calling backend:', `${API_BASE_URL}/orders?${queryString}`)
-
-    const response = await fetch(`${API_BASE_URL}/orders?${queryString}`, {
+    const url = queryString ? `${API_BASE_URL}/orders?${queryString}` : `${API_BASE_URL}/orders`
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
@@ -46,15 +65,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log('📦 [API Route] Backend response status:', response.status)
-
-    const data = await response.json()
-    console.log('📦 [API Route] Backend response data:', data)
+    const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      console.error('📦 [API Route] Backend error:', data)
       return NextResponse.json(
-        { error: data.error || 'Failed to fetch orders' },
+        { error: (data as any).message || (data as any).error || 'Failed to fetch orders' },
         { status: response.status }
       )
     }

@@ -30,6 +30,17 @@ async function authenticatedFetch(url: string, options: RequestInit = {}): Promi
   return response
 }
 
+export type QuoteStatusKey =
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'cancelled'
+  | 'accepted_for_chat'
+  | 'revising'
+  | 'order_requested'
+  | 'confirmed'
+  | 'expired'
+
 export interface Quote {
   id: string
   postId: string
@@ -39,21 +50,42 @@ export interface Quote {
   price: number
   description: string
   estimatedDuration?: number  // Thời gian dự kiến tính bằng phút
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'IN_CHAT'
+  /** Backend dùng snake_case lowercase (vd: pending, accepted_for_chat) */
+  status: string
   createdAt: string
   updatedAt: string
 }
 
 export interface QuoteRevision {
   id: string
-  quoteId: string
+  quoteId?: string
+  revisionNumber?: number
   price: number
   description: string
+  terms?: string
+  estimatedDuration?: number
+  changeReason?: string
+  priceChange?: number
+  percentChange?: number
+  usedForOrderId?: string
   createdAt: string
 }
 
 export interface QuoteWithRevisions extends Quote {
   revisions: QuoteRevision[]
+}
+
+export interface PostQuoteGroup {
+  postId: string
+  postTitle: string
+  quoteId: string
+  quote: QuoteWithRevisions & {
+    currentPrice?: number
+    chatOpenedAt?: string
+    orderRequestedAt?: string
+    revisionCount?: number
+    customRequestId?: string
+  }
 }
 
 export interface CreateQuoteRequest {
@@ -75,25 +107,19 @@ class QuoteService {
    * [Provider] Tạo quote mới cho post
    */
   async createQuote(data: CreateQuoteRequest): Promise<Quote> {
-    console.log('Creating quote with data:', data)
-    
-    // Validate postId format (must be UUID)
     if (!data.postId || typeof data.postId !== 'string') {
       throw new Error('Invalid postId format')
     }
-    
-    // Validate price
+
     const price = Number(data.price)
     if (isNaN(price) || price <= 0) {
       throw new Error('Giá phải là số dương')
     }
-    
-    // Validate description
+
     if (!data.description || data.description.trim().length === 0) {
       throw new Error('Mô tả không được để trống')
     }
-    
-    // Format dữ liệu đúng theo backend API expect (theo CreateQuoteDto)
+
     const requestBody: {
       postId: string
       price: number
@@ -103,49 +129,28 @@ class QuoteService {
       imageUrls?: string[]
     } = {
       postId: data.postId.trim(),
-      price: price,
-      description: data.description.trim()
-    }
-    
-    // Chỉ thêm estimatedDuration nếu có giá trị hợp lệ
-    if (data.estimatedDuration) {
-      const duration = Number(data.estimatedDuration)
-      if (!isNaN(duration) && duration > 0) {
-        requestBody.estimatedDuration = duration
-      }
+      price,
+      description: data.description.trim(),
     }
 
-    if (data.terms?.trim()) {
-      requestBody.terms = data.terms.trim()
+    if (data.estimatedDuration) {
+      const duration = Number(data.estimatedDuration)
+      if (!isNaN(duration) && duration > 0) requestBody.estimatedDuration = duration
     }
-    if (data.imageUrls?.length) {
-      requestBody.imageUrls = data.imageUrls.map((u) => u.trim()).filter(Boolean)
-    }
-    
-    console.log('Formatted request body:', requestBody)
-    console.log('Request body JSON:', JSON.stringify(requestBody, null, 2))
-    console.log('Data types:', {
-      postId: typeof requestBody.postId,
-      price: typeof requestBody.price,
-      description: typeof requestBody.description,
-      estimatedDuration: requestBody.estimatedDuration ? typeof requestBody.estimatedDuration : 'undefined'
-    })
-    
+    if (data.terms?.trim()) requestBody.terms = data.terms.trim()
+    if (data.imageUrls?.length) requestBody.imageUrls = data.imageUrls.map((u) => u.trim()).filter(Boolean)
+
     const response = await authenticatedFetch('/api/quotes', {
       method: 'POST',
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
     })
-    
+
     if (!response.ok) {
       const error = await response.json()
-      console.error('Quote creation failed:', error)
-      console.error('Sent data:', requestBody)
       throw new Error(error.error || error.message || 'Failed to create quote')
     }
-    
-    const result = await response.json()
-    console.log('Quote created successfully:', result)
-    return result
+
+    return response.json()
   }
 
   /**
@@ -246,24 +251,16 @@ class QuoteService {
    * [Customer] Chấp nhận quote để mở chat
    */
   async acceptQuoteForChat(quoteId: string): Promise<{ conversationId?: string; message?: string }> {
-    console.log('📡 [QuoteService] Accepting quote:', quoteId)
-    
     const response = await authenticatedFetch(`/api/quotes/${quoteId}/accept-for-chat`, {
-      method: 'POST'
+      method: 'POST',
     })
-    
-    console.log('📡 [QuoteService] Response status:', response.status)
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-      console.error('❌ [QuoteService] Accept quote failed:', error)
       throw new Error(error.error || error.message || 'Không thể chấp nhận báo giá')
     }
-    
-    const data = await response.json()
-    console.log('✅ [QuoteService] Accept quote success:', data)
-    
-    return data
+
+    return response.json()
   }
 
   /**
@@ -272,7 +269,7 @@ class QuoteService {
   async requestOrder(quoteId: string, revisionId?: string): Promise<{ orderId: string }> {
     const response = await authenticatedFetch(`/api/quotes/${quoteId}/request-order`, {
       method: 'POST',
-      body: JSON.stringify({ revisionId })
+      body: JSON.stringify(revisionId ? { revisionId } : {})
     })
     if (!response.ok) {
       const error = await response.json()
@@ -285,26 +282,17 @@ class QuoteService {
    * [Customer] Từ chối quote
    */
   async rejectQuote(quoteId: string, reason?: string): Promise<Quote> {
-    console.log('📡 [QuoteService] Rejecting quote:', quoteId)
-    console.log('📡 [QuoteService] Reason:', reason || 'No reason')
-    
     const response = await authenticatedFetch(`/api/quotes/${quoteId}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ reason })
+      body: JSON.stringify({ reason }),
     })
-    
-    console.log('📡 [QuoteService] Response status:', response.status)
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-      console.error('❌ [QuoteService] Reject failed:', error)
       throw new Error(error.error || error.message || 'Không thể từ chối báo giá')
     }
-    
-    const data = await response.json()
-    console.log('✅ [QuoteService] Reject success:', data)
-    
-    return data
+
+    return response.json()
   }
 
   /**
@@ -331,6 +319,22 @@ class QuoteService {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to get quote with revisions')
+    }
+    return response.json()
+  }
+
+  /**
+   * Lấy tất cả báo giá giữa customer và provider, sắp xếp theo bài đăng từ cũ đến mới.
+   * Dùng trong ChatQuotePanel để hiển thị toàn bộ lịch sử thương lượng.
+   */
+  async getQuotesBetweenUsers(customerId: string, providerId: string): Promise<PostQuoteGroup[]> {
+    const response = await authenticatedFetch(
+      `/api/quotes/between-users?customerId=${encodeURIComponent(customerId)}&providerId=${encodeURIComponent(providerId)}`,
+      { method: 'GET' },
+    )
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to get quotes between users')
     }
     return response.json()
   }

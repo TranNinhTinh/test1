@@ -4,7 +4,7 @@ import { TOKEN_KEYS } from './config'
 export interface Order {
   id: string
   orderNumber: string
-  quoteId: string
+  quoteId?: string
   postId: string
   customerId: string
   providerId: string
@@ -59,11 +59,22 @@ class OrderService {
   }
 
   /**
+   * [Customer] Chấp nhận giá ngay (quote PENDING) → POST /orders/accept-quote-direct/:quoteId
+   */
+  async acceptQuoteDirect(quoteId: string): Promise<Order> {
+    return this.request<Order>(`/orders/accept-quote-direct/${quoteId}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  }
+
+  /**
    * [Provider] Xác nhận làm → Tạo order từ quote
    */
   async confirmFromQuote(quoteId: string): Promise<Order> {
     return this.request<Order>(`/orders/confirm-from-quote/${quoteId}`, {
-      method: 'POST'
+      method: 'POST',
+      body: JSON.stringify({}),
     })
   }
 
@@ -78,15 +89,13 @@ class OrderService {
   }
 
   /**
-   * [Customer] Khách hàng xác nhận hoàn thành (finalize)
+   * [Customer] Khách hàng xác nhận hoàn thành (finalize) — đơn chuyển COMPLETED.
+   * Đánh giá gửi riêng qua `reviewService.createReview` sau khi chốt đơn.
    */
-  async customerComplete(orderId: string, rating?: number, review?: string): Promise<Order> {
+  async customerComplete(orderId: string): Promise<Order> {
     return this.request<Order>(`/orders/${orderId}/customer-complete`, {
       method: 'POST',
-      body: JSON.stringify({
-        rating,
-        review
-      })
+      body: JSON.stringify({}),
     })
   }
 
@@ -111,12 +120,32 @@ class OrderService {
     if (params?.cursor) queryParams.append('cursor', params.cursor)
 
     const query = queryParams.toString()
-    return this.request<{
-      data: Order[]
-      nextCursor?: string
-      hasMore: boolean
-      total: number
-    }>(`/orders${query ? `?${query}` : ''}`)
+    const raw = await this.request<any>(`/orders${query ? `?${query}` : ''}`)
+
+    // Nest `getMyOrders` returns `Order[]`; some routes may return `{ data, meta, ... }`.
+    if (Array.isArray(raw)) {
+      return {
+        data: raw,
+        hasMore: false,
+        total: raw.length,
+      }
+    }
+
+    const list = raw?.data
+    if (Array.isArray(list)) {
+      return {
+        data: list,
+        nextCursor: raw?.nextCursor,
+        hasMore: Boolean(raw?.hasMore),
+        total: Number(raw?.total) || Number(raw?.meta?.total) || list.length,
+      }
+    }
+
+    return {
+      data: [],
+      hasMore: false,
+      total: 0,
+    }
   }
 
   /**

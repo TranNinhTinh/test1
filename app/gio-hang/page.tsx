@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppShell from '@/app/components/AppShell'
-import Header from '@/app/components/Header'
 import { AuthService } from '@/lib/api/auth.service'
 import { quoteService, type Quote, type QuoteWithRevisions } from '@/lib/api/quote.service'
 import { PostService } from '@/lib/api/post.service'
@@ -40,16 +39,23 @@ export default function GioHangPage() {
 
   const getStatusLabel = (status: Quote['status']) => {
     switch (status) {
-      case 'PENDING':
+      case 'pending':
         return 'Đang chờ phản hồi'
-      case 'ACCEPTED':
+      case 'accepted':
         return 'Đã được chấp nhận'
-      case 'IN_CHAT':
+      case 'accepted_for_chat':
+      case 'revising':
         return 'Đang trao đổi'
-      case 'REJECTED':
+      case 'order_requested':
+        return 'Chờ xác nhận đơn'
+      case 'confirmed':
+        return 'Đã xác nhận đơn'
+      case 'rejected':
         return 'Đã bị từ chối'
-      case 'CANCELLED':
+      case 'cancelled':
         return 'Đã hủy'
+      case 'expired':
+        return 'Đã hết hạn'
       default:
         return status
     }
@@ -57,15 +63,20 @@ export default function GioHangPage() {
 
   const getStatusClassName = (status: Quote['status']) => {
     switch (status) {
-      case 'PENDING':
+      case 'pending':
         return 'bg-amber-100 text-amber-700'
-      case 'ACCEPTED':
+      case 'accepted':
         return 'bg-emerald-100 text-emerald-700'
-      case 'IN_CHAT':
+      case 'accepted_for_chat':
+      case 'revising':
         return 'bg-cyan-100 text-cyan-700'
-      case 'REJECTED':
+      case 'order_requested':
+      case 'confirmed':
+        return 'bg-green-100 text-green-700'
+      case 'rejected':
         return 'bg-rose-100 text-rose-700'
-      case 'CANCELLED':
+      case 'cancelled':
+      case 'expired':
         return 'bg-slate-100 text-slate-600'
       default:
         return 'bg-slate-100 text-slate-700'
@@ -246,7 +257,6 @@ export default function GioHangPage() {
   return (
     <AppShell>
     <div className="min-h-screen bg-surface-lowest">
-      <Header />
       <div className="border-b border-outline-variant/60 bg-surface shadow-app-bar">
         <div className="app-container max-w-5xl py-app-sm">
           <h1 className="text-xl font-bold text-foreground">Chào giá của tôi</h1>
@@ -336,7 +346,7 @@ export default function GioHangPage() {
             </div>
 
             {quotedPosts.map(({ quote, post }) => {
-              const postTitle = post?.title || `Bài đăng #${quote.postId.slice(0, 8)}`
+              const postTitle = post?.title || (quote.postId ? `Bài đăng #${quote.postId.slice(0, 8)}` : 'Bài đăng không xác định')
               const postDescription = post?.description || quote.description
 
               return (
@@ -344,7 +354,6 @@ export default function GioHangPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900">{postTitle}</h3>
-                      <p className="text-sm text-slate-500 mt-1">Mã bài đăng: {quote.postId}</p>
                     </div>
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusClassName(quote.status)}`}>
                       {getStatusLabel(quote.status)}
@@ -402,7 +411,7 @@ export default function GioHangPage() {
                       {loadingDetailId === quote.id ? 'Đang tải...' : 'Lịch sử sửa giá'}
                     </button>
 
-                    {quote.status === 'PENDING' && (
+                    {quote.status === 'pending' && (
                       <button
                         type="button"
                         onClick={() => handleUpdateQuote(quote)}
@@ -413,7 +422,7 @@ export default function GioHangPage() {
                       </button>
                     )}
 
-                    {(quote.status === 'PENDING' || quote.status === 'IN_CHAT') && (
+                    {(quote.status === 'pending' || quote.status === 'accepted_for_chat' || quote.status === 'revising') && (
                       <button
                         type="button"
                         onClick={() => handleCancelQuote(quote.id)}
@@ -424,7 +433,7 @@ export default function GioHangPage() {
                       </button>
                     )}
 
-                    {(quote.status === 'CANCELLED' || quote.status === 'REJECTED') && (
+                    {(quote.status === 'cancelled' || quote.status === 'rejected' || quote.status === 'expired') && (
                       <button
                         type="button"
                         onClick={() => handleDeleteQuote(quote.id)}

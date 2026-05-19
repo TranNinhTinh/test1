@@ -4,6 +4,8 @@ import { getPublicApiBaseV1 } from '@/lib/server/public-api-base'
 const API_BASE_URL = getPublicApiBaseV1()
 
 // GET /api/chat/conversations/[id]/messages - Lấy tin nhắn của conversation
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -20,8 +22,6 @@ export async function GET(
 
     const { id } = params
 
-    console.log('🔔 [Get Messages] Calling backend API...', id)
-
     const response = await fetch(`${API_BASE_URL}/chat/conversations/${id}/messages`, {
       method: 'GET',
       headers: {
@@ -32,8 +32,6 @@ export async function GET(
     })
 
     const data = await response.json()
-    
-    console.log('🔔 [Get Messages] Response:', data)
 
     if (!response.ok) {
       console.error('❌ [Get Messages] Error:', data)
@@ -79,8 +77,6 @@ export async function POST(
       )
     }
 
-    console.log('🔔 [Send Message] Calling backend API...', id)
-
     const response = await fetch(`${API_BASE_URL}/chat/conversations/${id}/messages`, {
       method: 'POST',
       headers: {
@@ -95,8 +91,6 @@ export async function POST(
     })
 
     const data = await response.json()
-
-    console.log('🔔 [Send Message] Response:', data)
 
     if (!response.ok) {
       console.error('❌ [Send Message] Error:', data)

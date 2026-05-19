@@ -4,6 +4,8 @@ import { getPublicApiOrigin } from '@/lib/server/public-api-base'
 const API_BASE_URL = getPublicApiOrigin()
 
 // Close post
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }

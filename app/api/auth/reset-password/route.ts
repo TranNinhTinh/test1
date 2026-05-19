@@ -4,6 +4,8 @@ import { getPublicApiOrigin } from '@/lib/server/public-api-base'
 
 const API_BASE_URL = getPublicApiOrigin()
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

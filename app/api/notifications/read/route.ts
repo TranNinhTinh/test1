@@ -7,6 +7,8 @@ const API_BASE_URL = getPublicApiBaseV1()
  * DELETE /api/notifications/read
  * Xóa tất cả thông báo đã đọc
  */
+export const dynamic = 'force-dynamic'
+
 export async function DELETE(request: NextRequest) {
   try {
     console.log('🗑️ [API Route] DELETE /api/notifications/read called')

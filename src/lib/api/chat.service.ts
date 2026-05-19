@@ -145,9 +145,19 @@ export const chatService = {
 
   // GET /chat/conversations/{id}/messages - Lấy tin nhắn của conversation
   async getMessages(conversationId: string): Promise<Message[]> {
-    return apiCall<Message[]>(`/chat/conversations/${conversationId}/messages`, {
-      method: 'GET',
-    })
+    const raw = await apiCall<Message[] | { messages?: Message[]; data?: Message[] }>(
+      `/chat/conversations/${conversationId}/messages`,
+      {
+        method: 'GET',
+      },
+    )
+    if (Array.isArray(raw)) return raw
+    if (raw && typeof raw === 'object') {
+      const r = raw as { messages?: Message[]; data?: Message[] }
+      if (Array.isArray(r.messages)) return r.messages
+      if (Array.isArray(r.data)) return r.data
+    }
+    return []
   },
 
   // POST /chat/conversations/{id}/read - Đánh dấu tin nhắn đã đọc

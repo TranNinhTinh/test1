@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Header from '@/app/components/Header'
 import AppShell from '@/app/components/AppShell'
 import { AuthService } from '@/lib/api/auth.service'
 import Image from 'next/image'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import { faBolt, faWrench, faTree, faSnowflake, faPaintbrush, faCamera } from '@fortawesome/free-solid-svg-icons'
 
 interface Worker {
   id: string
   name: string
-  avatar: string
+  icon: IconDefinition
   service: string
   rating: number
   reviewCount: number
@@ -29,7 +31,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '1',
     name: 'Thợ Điện Minh',
-    avatar: '⚡',
+    icon: faBolt,
     service: 'Sửa chữa điện',
     rating: 4.9,
     reviewCount: 156,
@@ -46,7 +48,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '2',
     name: 'Thợ Nước Toàn',
-    avatar: '🔧',
+    icon: faWrench,
     service: 'Thợ nước',
     rating: 4.8,
     reviewCount: 98,
@@ -63,7 +65,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '3',
     name: 'Mộc Tâm',
-    avatar: '🪵',
+    icon: faTree,
     service: 'Thợ mộc',
     rating: 5.0,
     reviewCount: 67,
@@ -80,7 +82,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '4',
     name: 'Điện Lạnh Hưng',
-    avatar: '❄️',
+    icon: faSnowflake,
     service: 'Điện lạnh',
     rating: 4.7,
     reviewCount: 124,
@@ -97,7 +99,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '5',
     name: 'Thợ Sơn Phát',
-    avatar: '🎨',
+    icon: faPaintbrush,
     service: 'Sơn nhà',
     rating: 4.6,
     reviewCount: 45,
@@ -114,7 +116,7 @@ const MOCK_WORKERS: Worker[] = [
   {
     id: '6',
     name: 'Kỹ Thuật Bảo An',
-    avatar: '📹',
+    icon: faCamera,
     service: 'Lắp camera',
     rating: 4.9,
     reviewCount: 82,
@@ -169,7 +171,6 @@ export default function FavoritesPage() {
     <AppShell>
     <div className="flex h-screen flex-col bg-surface-lowest">
       {/* Header */}
-      <Header />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -312,7 +313,7 @@ export default function FavoritesPage() {
                           <div className="flex items-center gap-4">
                             <div className="relative">
                               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl">
-                                {worker.avatar}
+                                <FontAwesomeIcon icon={worker.icon} />
                               </div>
                               {worker.isOnline && (
                                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>

@@ -226,6 +226,54 @@ export class AuthService {
     }
   }
 
+  static async forgotPasswordOtp(email: string): Promise<void> {
+    const response = await fetch('/api/auth/forgot-password-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data?.message || 'Không thể gửi mã OTP')
+    }
+  }
+
+  static async resetPasswordOtp(email: string, otp: string, newPassword: string): Promise<void> {
+    const response = await fetch('/api/auth/reset-password-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, newPassword }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data?.message || 'Không thể đặt lại mật khẩu')
+    }
+  }
+
+  static async verifyEmail(email: string, otp: string): Promise<void> {
+    const response = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data?.message || 'Mã OTP không hợp lệ hoặc đã hết hạn')
+    }
+  }
+
+  static async resendVerificationOtp(email: string): Promise<void> {
+    const response = await fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data?.message || 'Không thể gửi lại mã OTP')
+    }
+  }
+
   // Đăng ký
   static async register(data: RegisterRequest): Promise<{ success: boolean, message: string }> {
     try {

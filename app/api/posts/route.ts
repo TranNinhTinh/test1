@@ -5,6 +5,8 @@ import { normalizeBudgetInput } from '@/lib/server/normalize-budget'
 const API_BASE_URL = getPublicApiOrigin()
 
 // Create new post
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
